@@ -393,9 +393,9 @@
     // Inizializza Mappa Leaflet con tile libere OpenStreetMap / CartoDB
     const map = L.map('map', { zoomControl: false }).setView([41.9028, 12.4964], 13); // Default Roma
 
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
       maxZoom: 19,
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+      attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
     }).addTo(map);
 
     // Layer per grafica su mappa
