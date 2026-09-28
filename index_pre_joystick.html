@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>AuraRoute — Navigatore Reale</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    :root {
+      --bg: #0b0f19;
+      --card-bg: rgba(17, 24, 39, 0.92);
+      --border: rgba(255, 255, 255, 0.12);
+      --accent: #2563eb;
+      --accent-glow: rgba(37, 99, 235, 0.4);
+      --nav-green: #10b981;
+      --nav-red: #ef4444;
+      --text: #f9fafb;
+      --text-muted: #9ca3af;
+      --radius: 16px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+      position: relative;
+    }
+
+    #map {
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      background: #0f172a;
+    }
+
+    /* Search & Planner Bar (Floating Top) */
+    #search-container {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      right: 16px;
+      max-width: 480px;
+      z-index: 400;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .search-card {
+      background: var(--card-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 14px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .search-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .search-input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: var(--text);
+      font-size: 15px;
+      font-weight: 500;
+      outline: none;
+    }
+    .search-input::placeholder {
+      color: var(--text-muted);
+    }
+
+    /* Dropdown Suggerimenti Reali (Photon) */
+    #suggestions {
+      background: var(--card-bg);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      max-height: 220px;
+      overflow-y: auto;
+      display: none;
+      flex-direction: column;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+    }
+
+    .suggestion-item {
+      padding: 12px 14px;
+      font-size: 14px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .suggestion-item:hover {
+      background: rgba(255, 255, 255, 0.08);
+    }
+    .suggestion-title {
+      font-weight: 600;
+      color: white;
+    }
+    .suggestion-sub {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    /* Turn-by-Turn Real Navigation HUD */
+    #nav-hud {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      right: 16px;
+      max-width: 500px;
+      margin: 0 auto;
+      z-index: 500;
+      background: #0f172a;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: var(--radius);
+      box-shadow: 0 12px 35px rgba(0, 0, 0, 0.6);
+      padding: 14px 18px;
+      display: none;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .maneuver-icon-container {
+      width: 48px;
+      height: 48px;
+      background: var(--nav-green);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      flex-shrink: 0;
+    }
+
+    .maneuver-text {
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .maneuver-distance {
+      font-size: 22px;
+      font-weight: 800;
+      color: white;
+      line-height: 1.1;
+    }
+
+    .maneuver-street {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-top: 4px;
+    }
+
+    /* Bottom Info Bar */
+    #bottom-bar {
+      position: absolute;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 500;
+      background: var(--card-bg);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 12px 20px;
+      display: none;
+      align-items: center;
+      gap: 20px;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+      width: 90%;
+      max-width: 460px;
+      justify-content: space-between;
+    }
+
+    .stat-group {
+      display: flex;
+      flex-direction: column;
+    }
+    .stat-value {
+      font-size: 17px;
+      font-weight: 800;
+      color: white;
+    }
+    .stat-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    .btn-start {
+      background: var(--nav-green);
+      color: white;
+      border: none;
+      padding: 10px 18px;
+      border-radius: 12px;
+      font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
+    }
+
+    .btn-stop {
+      background: var(--nav-red);
+      color: white;
+      border: none;
+      padding: 8px 14px;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    /* Pulsanti Flottanti Mappa (Destra) */
+    .map-controls {
+      position: absolute;
+      right: 16px;
+      bottom: 100px;
+      z-index: 400;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .fab {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: var(--card-bg);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--border);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+    }
+    .fab:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    /* GPS User Marker */
+    .user-marker {
+      width: 22px;
+      height: 22px;
+      background: #3b82f6;
+      border: 3px solid white;
+      border-radius: 50%;
+      box-shadow: 0 0 15px #3b82f6;
+      position: relative;
+    }
+    .user-cone {
+      position: absolute;
+      top: -15px;
+      left: 1px;
+      width: 0; 
+      height: 0; 
+      border-left: 7px solid transparent;
+      border-right: 7px solid transparent;
+      border-bottom: 14px solid rgba(59, 130, 246, 0.7);
+      display: none;
+    }
+
+    /* Notification Toast */
+    #toast {
+      position: absolute;
+      bottom: 90px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: white;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 13px;
+      z-index: 600;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Map Canvas -->
+  <div id="map"></div>
+
+  <!-- Search & Route Planning (Floating Top) -->
+  <div id="search-container">
+    <div class="search-card">
+      <div class="search-row">
+        <i data-lucide="navigation" style="width:18px; height:18px; color:#3b82f6;"></i>
+        <input type="text" id="dest-input" class="search-input" placeholder="Cerca destinazione o tocca la mappa..." autocomplete="off">
+        <button id="btn-clear" onclick="pulisciDestinazione()" style="background:none; border:none; color:var(--text-muted); display:none; cursor:pointer;">
+          <i data-lucide="x" style="width:16px; height:16px;"></i>
+        </button>
+      </div>
+    </div>
+    <div id="suggestions"></div>
+  </div>
+
+  <!-- Top Turn-by-Turn Maneuver HUD -->
+  <div id="nav-hud">
+    <div class="maneuver-icon-container" id="hud-icon">
+      <i data-lucide="arrow-up" style="width:26px; height:26px;"></i>
+    </div>
+    <div class="maneuver-text">
+      <div class="maneuver-distance" id="hud-dist">-- m</div>
+      <div class="maneuver-street" id="hud-street">In attesa del percorso...</div>
+    </div>
+    <button onclick="fermaNavigazione()" class="btn-stop">Esci</button>
+  </div>
+
+  <!-- Bottom Trip Status -->
+  <div id="bottom-bar">
+    <div class="stat-group">
+      <span class="stat-value" id="stat-time">-- min</span>
+      <span class="stat-label" id="stat-eta">ETA: --:--</span>
+    </div>
+    <div class="stat-group">
+      <span class="stat-value" id="stat-dist">-- km</span>
+      <span class="stat-label">Distanza</span>
+    </div>
+    <button class="btn-start" id="btn-start-nav" onclick="avviaNavigazione()">
+      <i data-lucide="play" style="width:16px; height:16px;"></i>
+      <span>Avvia</span>
+    </button>
+  </div>
+
+  <!-- Floating Map Controls -->
+  <div class="map-controls">
+    <button class="fab" onclick="centraSuPosizione()" title="La mia posizione">
+      <i data-lucide="crosshair" style="width:20px; height:20px;"></i>
+    </button>
+    <button class="fab" onclick="toggleAudio()" id="btn-audio" title="Guida vocale">
+      <i data-lucide="volume-2" id="audio-icon" style="width:20px; height:20px;"></i>
+    </button>
+  </div>
+
+  <div id="toast"></div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <script>
+    lucide.createIcons();
+
+    // Stato dell'applicazione
+    let userLocation = null; // { lat, lon }
+    let destLocation = null; // { lat, lon, name }
+    let activeRoute = null;  // GeoJSON + steps di OSRM
+    let isNavigating = false;
+    let voiceEnabled = true;
+    let currentStepIndex = 0;
+    let watchId = null;
+
+    // Inizializza Mappa Leaflet con tile libere OpenStreetMap / CartoDB
+    const map = L.map('map', { zoomControl: false }).setView([41.9028, 12.4964], 13); // Default Roma
+
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
+
+    // Layer per grafica su mappa
+    let routeLayer = null;
+    let destMarker = null;
+
+    // Marker GPS Utente Reale
+    const userMarkerEl = L.divIcon({
+      className: 'user-marker-wrap',
+      html: `<div class="user-marker" id="user-dot"><div class="user-cone" id="user-cone"></div></div>`,
+      iconSize: [22, 22],
+      iconAnchor: [11, 11]
+    });
+    let userMarker = L.marker([41.9028, 12.4964], { icon: userMarkerEl }).addTo(map);
+
+    // 1. Acquisizione Posizione GPS Reale del Dispositivo
+    function avviaGPS() {
+      if (!('geolocation' in navigator)) {
+        showToast("Geolocalizzazione non supportata dal browser.");
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          userLocation = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+          userMarker.setLatLng([userLocation.lat, userLocation.lon]);
+          map.setView([userLocation.lat, userLocation.lon], 16);
+          showToast("Posizione GPS acquisita");
+        },
+        err => showToast("Attiva il GPS per consentire la navigazione"),
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
+
+      // Tracciamento continuo
+      watchId = navigator.geolocation.watchPosition(
+        aggiornaPosizioneGPS,
+        err => console.warn("GPS error:", err),
+        { enableHighAccuracy: true, maximumAge: 1000 }
+      );
+    }
+
+    function aggiornaPosizioneGPS(pos) {
+      userLocation = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+      userMarker.setLatLng([userLocation.lat, userLocation.lon]);
+
+      // Orientamento (heading)
+      if (pos.coords.heading !== null && !isNaN(pos.coords.heading)) {
+        const cone = document.getElementById('user-cone');
+        if (cone) {
+          cone.style.display = 'block';
+          document.getElementById('user-dot').style.transform = `rotate(${pos.coords.heading}deg)`;
+        }
+      }
+
+      // Se la navigazione è attiva, aggiorna avanzamento turn-by-turn reale
+      if (isNavigating && activeRoute) {
+        map.panTo([userLocation.lat, userLocation.lon]);
+        elaboraAvanzamentoNavigazione(userLocation);
+      }
+    }
+
+    // 2. Click diretto sulla mappa per impostare la destinazione
+    map.on('click', e => {
+      if (isNavigating) return;
+      impostaDestinazione(e.latlng.lat, e.latlng.lng, "Destinazione selezionata sulla mappa");
+    });
+
+    // 3. Ricerca Indirizzi Reale con Photon (Autocompletamento con priorità vicina all'utente)
+    const searchInput = document.getElementById('dest-input');
+    const suggestionsBox = document.getElementById('suggestions');
+    let searchDebounce = null;
+
+    searchInput.addEventListener('input', e => {
+      const q = e.target.value.trim();
+      document.getElementById('btn-clear').style.display = q ? 'block' : 'none';
+      clearTimeout(searchDebounce);
+
+      if (q.length < 3) {
+        suggestionsBox.style.display = 'none';
+        return;
+      }
+
+      searchDebounce = setTimeout(async () => {
+        let url = `https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=5`;
+        if (userLocation) {
+          url += `&lat=${userLocation.lat}&lon=${userLocation.lon}`;
+        }
+
+        try {
+          const res = await fetch(url);
+          const data = await res.json();
+          renderSuggerimenti(data.features || []);
+        } catch (err) {
+          console.error(err);
+        }
+      }, 300);
+    });
+
+    function renderSuggerimenti(features) {
+      if (features.length === 0) {
+        suggestionsBox.style.display = 'none';
+        return;
+      }
+
+      suggestionsBox.innerHTML = '';
+      features.forEach(f => {
+        const p = f.properties;
+        const [lon, lat] = f.geometry.coordinates;
+        const item = document.createElement('div');
+        item.className = 'suggestion-item';
+
+        const name = p.name || p.street || 'Luogo';
+        const details = [p.city, p.county, p.country].filter(Boolean).join(', ');
+
+        item.innerHTML = `<span class="suggestion-title">${name}</span>
+                          <span class="suggestion-sub">${details}</span>`;
+        item.onclick = () => {
+          searchInput.value = name;
+          suggestionsBox.style.display = 'none';
+          impostaDestinazione(lat, lon, name);
+        };
+        suggestionsBox.appendChild(item);
+      });
+      suggestionsBox.style.display = 'flex';
+    }
+
+    function pulisciDestinazione() {
+      searchInput.value = '';
+      document.getElementById('btn-clear').style.display = 'none';
+      suggestionsBox.style.display = 'none';
+      if (destMarker) map.removeLayer(destMarker);
+      if (routeLayer) map.removeLayer(routeLayer);
+      document.getElementById('bottom-bar').style.display = 'none';
+      destLocation = null;
+      activeRoute = null;
+    }
+
+    // 4. Impostazione Destinazione e Calcolo Rotta con OSRM
+    async function impostaDestinazione(lat, lon, label) {
+      if (!userLocation) {
+        showToast("In attesa del segnale GPS...");
+        return;
+      }
+
+      destLocation = { lat, lon, name: label };
+
+      if (destMarker) map.removeLayer(destMarker);
+      destMarker = L.marker([lat, lon]).addTo(map).bindPopup(label).openPopup();
+
+      await calcolaRottaReale(userLocation, destLocation);
+    }
+
+    async function calcolaRottaReale(start, end) {
+      showToast("Calcolo percorso in corso...");
+      // Chiamata OSRM reale con overview completa e step per le svolte
+      const url = `https://router.project-osrm.org/route/v1/driving/${start.lon},${start.lat};${end.lon},${end.lat}?overview=full&geometries=geojson&steps=true`;
+
+      try {
+        const res = await fetch(url);
+        const data = await res.json();
+
+        if (!data.routes || data.routes.length === 0) {
+          showToast("Nessuna rotta stradale trovata.");
+          return;
+        }
+
+        activeRoute = data.routes[0];
+
+        // Disegna tracciato
+        if (routeLayer) map.removeLayer(routeLayer);
+        routeLayer = L.geoJSON(activeRoute.geometry, {
+          style: { color: '#2563eb', weight: 6, opacity: 0.85, lineJoin: 'round' }
+        }).addTo(map);
+
+        map.fitBounds(routeLayer.getBounds(), { padding: [50, 50] });
+
+        // Mostra Barra Inferiore
+        const km = (activeRoute.distance / 1000).toFixed(1);
+        const min = Math.round(activeRoute.duration / 60);
+        document.getElementById('stat-dist').innerText = `${km} km`;
+        document.getElementById('stat-time').innerText = `${min} min`;
+
+        const eta = new Date();
+        eta.setSeconds(eta.getSeconds() + activeRoute.duration);
+        document.getElementById('stat-eta').innerText = `ETA: ${eta.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+
+        document.getElementById('bottom-bar').style.display = 'flex';
+
+      } catch (err) {
+        showToast("Errore di rete nel calcolo rotta.");
+      }
+    }
+
+    // 5. Avvio della Navigazione Reale
+    function avviaNavigazione() {
+      if (!activeRoute || !activeRoute.legs || !activeRoute.legs[0].steps) return;
+      isNavigating = true;
+      currentStepIndex = 0;
+
+      document.getElementById('search-container').style.display = 'none';
+      document.getElementById('nav-hud').style.display = 'flex';
+      document.getElementById('btn-start-nav').style.display = 'none';
+
+      map.setZoom(17);
+      map.panTo([userLocation.lat, userLocation.lon]);
+
+      mostraManovraCorrente();
+      parlaManovra();
+    }
+
+    function fermaNavigazione() {
+      isNavigating = false;
+      document.getElementById('search-container').style.display = 'flex';
+      document.getElementById('nav-hud').style.display = 'none';
+      document.getElementById('btn-start-nav').style.display = 'flex';
+      if (routeLayer) map.fitBounds(routeLayer.getBounds(), { padding: [50, 50] });
+    }
+
+    // Calcolo della distanza reale (Formula di Haversine) tra due coordinate in metri
+    function distanzaMetri(lat1, lon1, lat2, lon2) {
+      const R = 6371e3; // raggio terra in metri
+      const φ1 = lat1 * Math.PI / 180;
+      const φ2 = lat2 * Math.PI / 180;
+      const Δφ = (lat2 - lat1) * Math.PI / 180;
+      const Δλ = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                Math.cos(φ1) * Math.cos(φ2) *
+                Math.sin(Δλ/2) * Math.sin(Δλ/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      return R * c;
+    }
+
+    // Avanzamento reale manovre passo-passo
+    function elaboraAvanzamentoNavigazione(pos) {
+      const steps = activeRoute.legs[0].steps;
+      if (currentStepIndex >= steps.length) {
+        showToast("Sei arrivato a destinazione!");
+        parla("Sei arrivato a destinazione.");
+        fermaNavigazione();
+        return;
+      }
+
+      const step = steps[currentStepIndex];
+      // Coordinata di svolta dello step [lon, lat]
+      const stepManeuverLoc = step.maneuver.location;
+      const dist = distanzaMetri(pos.lat, pos.lon, stepManeuverLoc[1], stepManeuverLoc[0]);
+
+      // Se siamo a meno di 25 metri dal punto di svolta, passa allo step successivo
+      if (dist < 25 && currentStepIndex < steps.length - 1) {
+        currentStepIndex++;
+        mostraManovraCorrente();
+        parlaManovra();
+      } else {
+        // Aggiorna la distanza residua a schermo
+        document.getElementById('hud-dist').innerText = dist > 1000 ? `Tra ${(dist/1000).toFixed(1)} km` : `Tra ${Math.round(dist)} m`;
+      }
+    }
+
+    function mostraManovraCorrente() {
+      const step = activeRoute.legs[0].steps[currentStepIndex];
+      const streetName = step.name || "Continua sul percorso";
+      document.getElementById('hud-street').innerText = streetName;
+      
+      const type = step.maneuver.type;
+      const modifier = step.maneuver.modifier || '';
+      
+      // Icona appropriata in base alla manovra reale di OSRM
+      let iconName = 'arrow-up';
+      if (modifier.includes('right')) iconName = 'corner-up-right';
+      else if (modifier.includes('left')) iconName = 'corner-up-left';
+      else if (type === 'roundabout') iconName = 'rotate-cw';
+      else if (type === 'arrive') iconName = 'flag';
+
+      document.getElementById('hud-icon').innerHTML = `<i data-lucide="${iconName}" style="width:26px; height:26px;"></i>`;
+      lucide.createIcons();
+    }
+
+    // 6. Guida Vocale Nativa del Browser (Web Speech Synthesis API)
+    function parla(testo) {
+      if (!voiceEnabled || !('speechSynthesis' in window)) return;
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(testo);
+      utterance.lang = 'it-IT';
+      window.speechSynthesis.speak(utterance);
+    }
+
+    function parlaManovra() {
+      const step = activeRoute.legs[0].steps[currentStepIndex];
+      let testo = "";
+      const mod = step.maneuver.modifier;
+      const via = step.name ? `in ${step.name}` : "";
+
+      if (mod === 'right' || mod === 'slight right') testo = `Gira a destra ${via}`;
+      else if (mod === 'left' || mod === 'slight left') testo = `Gira a sinistra ${via}`;
+      else if (step.maneuver.type === 'roundabout') testo = `Entra nella rotonda e prendi l'uscita ${via}`;
+      else if (step.maneuver.type === 'arrive') testo = "Sei arrivato a destinazione";
+      else testo = `Continua dritto ${via}`;
+
+      parla(testo);
+    }
+
+    function toggleAudio() {
+      voiceEnabled = !voiceEnabled;
+      const icon = document.getElementById('audio-icon');
+      icon.setAttribute('data-lucide', voiceEnabled ? 'volume-2' : 'volume-x');
+      lucide.createIcons();
+      showToast(voiceEnabled ? "Guida vocale attiva" : "Guida vocale disattivata");
+    }
+
+    function centraSuPosizione() {
+      if (userLocation) {
+        map.setView([userLocation.lat, userLocation.lon], 16, { animate: true });
+      } else {
+        avviaGPS();
+      }
+    }
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.innerText = msg;
+      t.style.display = 'block';
+      setTimeout(() => t.style.display = 'none', 3000);
+    }
+
+    // Avvio iniziale
+    avviaGPS();
+  </script>
+</body>
+</html>
