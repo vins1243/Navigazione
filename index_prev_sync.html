@@ -1208,9 +1208,9 @@
         });
       }
 
-      // 2. Se l'utente ha inserito una richiesta AI, invia il percorso precalcolato per deviarlo
+      // 2. Se l'utente ha inserito una richiesta AI, invia il percorso precalcolato all'endpoint per la modifica
       if (customPrompt) {
-        showToast("Consultazione OpenAI...");
+        showToast("Consultazione OpenAI con percorso precalcolato...");
         try {
           const aiRes = await fetch('/api/plan', {
             method: 'POST',
@@ -1230,6 +1230,7 @@
           if (aiRes.ok) {
             const aiData = await aiRes.json();
             if (aiData.via_points && Array.isArray(aiData.via_points) && aiData.via_points.length > 0) {
+              // Validazione robusta delle coordinate (gestisce lat/latitude e lon/lng/longitude)
               waypoints = aiData.via_points.map(w => ({
                 lat: parseFloat(w.lat !== undefined ? w.lat : w.latitude),
                 lon: parseFloat(w.lon !== undefined ? w.lon : (w.lng !== undefined ? w.lng : w.longitude)),
@@ -1238,7 +1239,7 @@
 
               showToast(`🎯 L'IA ha applicato ${waypoints.length} tappe per deviare il percorso`);
             } else {
-              showToast("ℹ️ L'IA conferma la rotta ottimale");
+              showToast("ℹ️ L'IA mantiene il percorso precalcolato");
             }
             if (aiData.spiegazione) {
               aiExplanation = aiData.spiegazione;
@@ -1250,7 +1251,7 @@
           }
         } catch (e) {
           console.warn("Chiamata AI fallita:", e);
-          showToast("⚠️ Errore connessione AI");
+          showToast("⚠️ Errore di connessione con l'IA");
         }
       }
 
@@ -1280,8 +1281,7 @@
         activeRoute = baselineRoute;
       }
 
-      // 4. Renderizzazione e aggiornamento interfaccia
-      try {
+        // Mostra o nascondi banner spiegazione AI
         const aiBanner = document.getElementById('ai-rationale-banner');
         const aiText = document.getElementById('ai-rationale-text');
         if (aiExplanation) {
@@ -1298,6 +1298,7 @@
           });
         }
 
+        // Mostra intera rotta: da lontano è raddrizzata (pitch basso) per una panoramica chiara
         const coords = activeRoute.geometry.coordinates;
         const bounds = coords.reduce((b, coord) => b.extend(coord), new maplibregl.LngLatBounds(coords[0], coords[0]));
         map.fitBounds(bounds, { padding: 80, pitch: 20 });
@@ -1313,7 +1314,7 @@
 
         document.getElementById('nav-footer-easylink').style.display = 'flex';
       } catch (err) {
-        showToast("Errore di rendering rotta.");
+        showToast("Errore di rete.");
       }
     }
 
