@@ -1164,6 +1164,7 @@
     }
 
     function selezionaChip(el, text) {
+      // Mantenuto per compatibilità opzionale
       if (document.getElementById('ai-custom-prompt')) {
         document.getElementById('ai-custom-prompt').value = text;
       }
@@ -1176,18 +1177,18 @@
 
       const customPrompt = document.getElementById('ai-custom-prompt') ? document.getElementById('ai-custom-prompt').value.trim() : "";
 
-      // 1. Calcolo del percorso standard iniziale (baseline precalcolato con OSRM)
+      // 1. Calcolo del percorso standard iniziale (baseline precalcolato)
       let baselineRoute = null;
       try {
-        const baseCoords = `${userLocation.lon},${userLocation.lat};${destLocation.lon},${destLocation.lat}`;
-        const baseUrl = `https://router.project-osrm.org/route/v1/driving/${baseCoords}?overview=full&geometries=geojson&steps=true`;
+        const baseCoords = ;
+        const baseUrl = ;
         const baseRes = await fetch(baseUrl);
         const baseData = await baseRes.json();
         if (baseData.routes && baseData.routes.length > 0) {
           baselineRoute = baseData.routes[0];
         }
       } catch (err) {
-        console.warn("Errore calcolo rotta base OSRM:", err);
+        console.warn("Errore calcolo rotta precalcolata OSRM:", err);
       }
 
       if (!baselineRoute) {
@@ -1208,9 +1209,9 @@
         });
       }
 
-      // 2. Se l'utente ha inserito una richiesta AI, invia il percorso precalcolato all'endpoint per la modifica
+      // 2. Se l'utente ha inserito una richiesta per l'AI, invia il percorso precalcolato all'AI per farlo modificare
       if (customPrompt) {
-        showToast("Consultazione OpenAI con percorso precalcolato...");
+        showToast("Ottimizzazione con OpenAI in corso...");
         try {
           const aiRes = await fetch('/api/plan', {
             method: 'POST',
@@ -1229,41 +1230,30 @@
 
           if (aiRes.ok) {
             const aiData = await aiRes.json();
-            if (aiData.via_points && Array.isArray(aiData.via_points) && aiData.via_points.length > 0) {
-              // Validazione robusta delle coordinate (gestisce lat/latitude e lon/lng/longitude)
-              waypoints = aiData.via_points.map(w => ({
-                lat: parseFloat(w.lat !== undefined ? w.lat : w.latitude),
-                lon: parseFloat(w.lon !== undefined ? w.lon : (w.lng !== undefined ? w.lng : w.longitude)),
-                nome: w.nome || w.name || "Punto via"
-              })).filter(w => !isNaN(w.lat) && !isNaN(w.lon));
-
-              showToast(`🎯 L'IA ha applicato ${waypoints.length} tappe per deviare il percorso`);
-            } else {
-              showToast("ℹ️ L'IA mantiene il percorso precalcolato");
+            if (aiData.via_points && Array.isArray(aiData.via_points)) {
+              waypoints = aiData.via_points;
             }
             if (aiData.spiegazione) {
               aiExplanation = aiData.spiegazione;
             }
           } else {
             const err = await aiRes.json().catch(() => ({}));
-            console.warn("AI Plan fallback:", err);
-            showToast("⚠️ " + (err.error || "Errore AI, uso rotta standard"));
+            console.warn("AI Plan fallback:", err.error);
+            if (err.error && err.error.includes("OPENAI_API_KEY")) {
+              showToast("⚠️ Inserisci OPENAI_API_KEY su Cloudflare Pages");
+            }
           }
         } catch (e) {
-          console.warn("Chiamata AI fallita:", e);
-          showToast("⚠️ Errore di connessione con l'IA");
+          console.warn("Chiamata AI non riuscita, mantengo percorso precalcolato:", e);
         }
       }
 
       // 3. Se l'AI ha fornito waypoints per modificare il percorso, ricalcoliamo con OSRM
       if (waypoints.length > 0) {
-        const allPoints = [
-          { lon: userLocation.lon, lat: userLocation.lat },
-          ...waypoints.map(w => ({ lon: w.lon, lat: w.lat })),
-          { lon: destLocation.lon, lat: destLocation.lat }
-        ];
-        const coordsString = allPoints.map(p => `${p.lon},${p.lat}`).join(';');
-        const url = `https://router.project-osrm.org/route/v1/driving/${coordsString}?overview=full&geometries=geojson&steps=true`;
+        showToast("Ricalcolo con modifiche AI...");
+        const allPoints = [{ lon: userLocation.lon, lat: userLocation.lat }, ...waypoints.map(w => ({ lon: w.lon, lat: w.lat })), { lon: destLocation.lon, lat: destLocation.lat }];
+        const coordsString = allPoints.map(p => ).join(';');
+        const url = ;
 
         try {
           const res = await fetch(url);
@@ -1278,8 +1268,22 @@
           activeRoute = baselineRoute;
         }
       } else {
+        // Nessuna modifica richiesta o rotta standard
         activeRoute = baselineRoute;
       }
+          } else {
+            activeRoute = baselineRoute;
+          }
+        } catch (err) {
+          console.warn("Errore ricalcolo OSRM con waypoints:", err);
+          activeRoute = baselineRoute;
+        }
+      } else {
+        // Nessuna modifica richiesta o rotta standard
+        activeRoute = baselineRoute;
+      }
+
+      try {
 
         // Mostra o nascondi banner spiegazione AI
         const aiBanner = document.getElementById('ai-rationale-banner');

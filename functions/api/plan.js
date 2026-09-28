@@ -19,7 +19,7 @@ export async function onRequestPost(context) {
 
   try {
     const body = await request.json();
-    const { origin, destination, preferences } = body;
+    const { origin, destination, preferences, baseline_route } = body;
 
     if (!origin || !destination) {
       return new Response(
@@ -29,42 +29,53 @@ export async function onRequestPost(context) {
     }
 
     const systemPrompt = `Sei un ingegnere esperto di navigazione stradale e logistica per percorsi in auto in Italia ed Europa.
-L'utente ti indicherà:
-- Partenza (con coordinate approssimative)
-- Destinazione (con coordinate approssimative)
-- Preferenze e vincoli tassativi del guidatore (es. "evita autostrade", "solo statali", "solo autostrada comoda", "evita pedaggi", "percorso panoramico lungo la costa").
+Lavori a supporto del motore cartografico OSRM, che di default sceglie SEMPRE le autostrade per via dei limiti di velocità più alti.
 
-REGOLE CRUCIALI PER RISPETTARE LE RICHIESTE DEL GUIDATORE:
-1. SE L'UTENTE CHIEDE "EVITA AUTOSTRADE" O "NO PEDAGGI":
-   - È UN VINCOLO FERREO: il motore di navigazione OSRM di default sceglie SEMPRE l'autostrada perché ha limiti di velocità più alti.
-   - Per forzare il navigatore a EVITARE L'AUTOSTRADA, devi identificare da 2 a 4 punti di passaggio intermedi (waypoints) posizionati ESCLUSIVAMENTE lungo le Strade Statali principali (es. SS16 Adriatica, SS106 Jonica, SS18 Tirrenica, SS1 Aurelia, SS9 Emilia, SS7, ecc.).
-   - I punti devono essere scelti in centri abitati o incroci lungo la statale (distanti dai caselli autostradali) in modo che il tragitto complessivo tra un punto e l'altro non permetta a OSRM di rientrare in autostrada.
-   - Spiega chiaramente che hai impostato il transito sulle strade statali indicate per escludere i pedaggi e i tratti autostradali.
+Il tuo compito è analizzare la richiesta del guidatore ed eventualmente il percorso precalcolato, e restituire dei punti di passaggio geografici intermedi (waypoints) che DEVONO FORZARE FISICAMENTE il navigatore a cambiare strada.
 
-2. SE L'UTENTE CHIEDE "SOLO AUTOSTRADA COMODA":
-   - Forza il transito sui nodi e raccordi autostradali principali (es. A1, A14, A2, ecc.), evitando passi montani o statali secondarie.
+REGOLE TASSATIVE PER GENERARE I WAYPOINTS:
 
-3. SE L'UTENTE NON DA VINCOLI O CHIEDE IL PERCORSO STANDARD:
-   - Se la rotta standard rispetta già la richiesta, puoi lasciare l'array via_points vuoto [].
+1. SE L'UTENTE CHIEDE "EVITA AUTOSTRADE" / "NO PEDAGGI" / "SOLO STATALI":
+   - OSRM cerca in tutti i modi di rientrare in autostrada tra un punto e l'altro se trova un casello vicino.
+   - Per impedire questo in modo ferreo, DEVI generare da 3 a 5 waypoints intermedi ben distribuiti lungo l'intero tragitto.
+   - Ogni punto DEVE trovarsi su una Strada Statale o Regionale principale (es. SS16 Adriatica, SS106 Jonica, SS18 Tirrenica, SS1 Aurelia, SS9 Via Emilia, SS67, SS3bis Tiberina, ecc.).
+   - SCEGLI CENTRI ABITATI O SNODI LUNGO LA STATALE CHE SIANO BEN DISTANTI DAI CASELLI AUTOSTRADALI, così che percorrere l'autostrada tra un punto e l'altro sia per OSRM uno svantaggio chilometrico evidente e sia costretto a restare sulla statale.
 
-DEVI RISPONDERE TASSATIVAMENTE ED ESCLUSIVAMENTE CON UN OGGETTO JSON con questa struttura:
+2. SE L'UTENTE CHIEDE "SOLO AUTOSTRADA" / "PREDILIGI AUTOSTRADA" / "COMFORT":
+   - Se il percorso prevede tratti secondari o passi tortuosi, inserisci da 1 a 3 waypoints sui nodi e raccordi autostradali principali per garantire viabilità a corsie separate.
+
+3. SE L'UTENTE CHIEDE "PANORAMICO" / "LUNGO IL MARE":
+   - Inserisci da 2 a 4 waypoints su litoranee, lungomari o strade costiere panoramiche.
+
+4. SE L'UTENTE CHIEDE "EVITA CENTRI URBANI" / "ZERO ZTL":
+   - Inserisci waypoints su tangenziali esterne o circonvallazioni periferiche per evitare che il percorso attraversi centri abitati congestionati.
+
+5. SE LA RICHIESTA È GIÀ SODDISFATTA DAL PERCORSO O NON RICHIEDE DEVIAZIONI:
+   - Restituisci l'array via_points vuoto [].
+
+DEVI RISPONDERE TASSATIVAMENTE ED ESCLUSIVAMENTE CON UN OGGETTO JSON con questa struttura esatta:
 {
-  "spiegazione": "Descrizione chiara del percorso impostato, specificando le strade statali o le autostrade scelte per soddisfare la richiesta",
+  "spiegazione": "Descrizione chiara e sintetica della rotta impostata, citando le strade statali o autostrade scelte per soddisfare la preferenza.",
   "via_points": [
     {
-      "nome": "Nome della località o strada statale intermedia",
+      "nome": "Nome della località intermedia o strada statale",
       "lat": 40.1234,
       "lon": 16.5678
     }
   ]
 }`;
 
-    const userPrompt = `Dati di viaggio:
-- Partenza: ${JSON.stringify(origin)}
-- Destinazione: ${JSON.stringify(destination)}
-- RICHIESTA/PREFERENZA GUIDATORE: "${preferences || 'Percorso standard'}"
+    let baselineDesc = "";
+    if (baseline_route && baseline_route.roads && baseline_route.roads.length > 0) {
+      baselineDesc = `\n- Percorso attualmente precalcolato dal navigatore:\n  * Distanza: ${baseline_route.distance_km || '--'} km\n  * Durata: ${baseline_route.duration_min || '--'} min\n  * Strade attualmente usate: ${baseline_route.roads.join(', ')}`;
+    }
 
-Calcola i via_points necessari per garantire il rispetto assoluto della preferenza (in particolare se chiede di evitare autostrade).`;
+    const userPrompt = `DATI DI VIAGGIO:
+- Partenza: ${JSON.stringify(origin)}
+- Destinazione: ${JSON.stringify(destination)}${baselineDesc}
+- RICHIESTA GUIDATORE: "${preferences || 'Nessuna preferenza'}"
+
+Calcola i via_points necessari per garantire che il navigatore OSRM segua fedelmente la preferenza richiesta (soprattutto se richiede di evitare o forzare autostrade).`;
 
     const openAiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
