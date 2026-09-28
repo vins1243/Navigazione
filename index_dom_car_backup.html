@@ -689,8 +689,6 @@
 
   <div id="toast"></div>
 
-    <!-- Three.js (Motore 3D per Vettura Mesh Poligonale Reale) -->
-  <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
   <!-- MapLibre GL JS -->
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 
@@ -722,210 +720,57 @@
 
     map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
 
-    // COSTRUZIONE PROCEDURALE VETTURA 3D (Mesh Poligonale Reale Three.js)
-    // Proporzioni dalla scheda tecnica Mégane IV: Lunghezza 4.36m, Larghezza 1.82m, Altezza 1.44m
-    function creaVettura3D() {
-      const car = new THREE.Group();
+    // Marker Veicolo 3D Volumetrico
+    const carEl = document.createElement('div');
+    carEl.className = 'vehicle-3d-model';
+    carEl.innerHTML = `
+      <!-- Fascio Fari -->
+      <div class="headlights-beam"></div>
+      <!-- Ombra a Terra -->
+      <div class="car-ground-shadow"></div>
+      <!-- Scocca 3D Hatchback (Proporzioni Mégane IV De-branded) -->
+      <div class="car-chassis-hatchback">
+        <div class="car-body-shell">
+          <!-- Nervature cofano -->
+          <div class="hood-creases">
+            <div class="hood-crease-line"></div>
+            <div class="hood-crease-line"></div>
+          </div>
+          <!-- Fari anteriori Full LED C-Shape -->
+          <div class="front-lights-bar">
+            <div class="headlight-led"></div>
+            <div class="front-grille-line"></div>
+            <div class="headlight-led"></div>
+          </div>
+          <!-- Abitacolo profilato -->
+          <div class="car-cabin">
+            <div class="cabin-windshield"></div>
+            <div class="cabin-roof"></div>
+            <div class="cabin-rear-window"></div>
+          </div>
+          <!-- Spoiler posteriore -->
+          <div class="rear-spoiler-lip"></div>
+          <!-- Barra LED posteriore a tutta larghezza (senza logo) -->
+          <div class="rear-lightbar-strip">
+            <div class="rear-led-left"></div>
+            <div class="rear-center-led"></div>
+            <div class="rear-led-right"></div>
+          </div>
+        </div>
+        <!-- Specchietti retrovisori -->
+        <div class="side-mirror-left"></div>
+        <div class="side-mirror-right"></div>
+      </div>
+    `;
 
-      // Materiali Fotorealistici PBR con riflessi metallizzati
-      const verniceGrigioTitanio = new THREE.MeshStandardMaterial({
-        color: 0x475569,
-        metalness: 0.85,
-        roughness: 0.28
-      });
-
-      const cristalliOscurati = new THREE.MeshStandardMaterial({
-        color: 0x0a0f1d,
-        metalness: 0.95,
-        roughness: 0.08,
-        transparent: true,
-        opacity: 0.95
-      });
-
-      const gommaPneumatico = new THREE.MeshStandardMaterial({
-        color: 0x111827,
-        roughness: 0.85,
-        metalness: 0.2
-      });
-
-      const cerchioLega = new THREE.MeshStandardMaterial({
-        color: 0xe2e8f0,
-        metalness: 0.95,
-        roughness: 0.15
-      });
-
-      // Firma luminosa posteriore a tutta larghezza (Mégane style de-branded)
-      const barraLedRossa = new THREE.MeshStandardMaterial({
-        color: 0xef4444,
-        emissive: 0xef4444,
-        emissiveIntensity: 2.8
-      });
-
-      const fariLedAnteriori = new THREE.MeshStandardMaterial({
-        color: 0xffffff,
-        emissive: 0x38bdf8,
-        emissiveIntensity: 2.5
-      });
-
-      // 1. Scocca inferiore Hatchback (1.82m x 4.36m x 0.60m)
-      const chassisGeom = new THREE.BoxGeometry(1.82, 4.36, 0.58);
-      const chassis = new THREE.Mesh(chassisGeom, verniceGrigioTitanio);
-      chassis.position.z = 0.44;
-      car.add(chassis);
-
-      // Muso anteriore affusolato
-      const noseGeom = new THREE.BoxGeometry(1.76, 0.8, 0.45);
-      const nose = new THREE.Mesh(noseGeom, verniceGrigioTitanio);
-      nose.position.set(0, 1.85, 0.38);
-      car.add(nose);
-
-      // 2. Abitacolo / Cristalli (Greenhouse compatto con parabrezza inclinato)
-      const cabinGeom = new THREE.BoxGeometry(1.52, 2.45, 0.58);
-      const cabin = new THREE.Mesh(cabinGeom, cristalliOscurati);
-      cabin.position.set(0, -0.32, 0.96);
-      car.add(cabin);
-
-      // 3. Tettuccio panoramico
-      const roofGeom = new THREE.BoxGeometry(1.46, 1.85, 0.05);
-      const roof = new THREE.Mesh(roofGeom, verniceGrigioTitanio);
-      roof.position.set(0, -0.32, 1.26);
-      car.add(roof);
-
-      // 4. Spoiler aerodinamico posteriore
-      const spoilerGeom = new THREE.BoxGeometry(1.54, 0.32, 0.06);
-      const spoiler = new THREE.Mesh(spoilerGeom, verniceGrigioTitanio);
-      spoiler.position.set(0, -1.60, 1.26);
-      car.add(spoiler);
-
-      // 5. Firma luminosa posteriore: Barra LED orizzontale a tutta larghezza
-      const rearBarGeom = new THREE.BoxGeometry(1.74, 0.08, 0.09);
-      const rearBar = new THREE.Mesh(rearBarGeom, barraLedRossa);
-      rearBar.position.set(0, -2.18, 0.54);
-      car.add(rearBar);
-
-      // 6. Fari anteriori C-Shape Full LED
-      const frontLeft = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.08, 0.12), fariLedAnteriori);
-      frontLeft.position.set(-0.68, 2.18, 0.48);
-      const frontRight = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.08, 0.12), fariLedAnteriori);
-      frontRight.position.set(0.68, 2.18, 0.48);
-      car.add(frontLeft);
-      car.add(frontRight);
-
-      // 7. Quattro Ruote Volumetriche con Pneumatici e Cerchi in Lega
-      const wheelGeom = new THREE.CylinderGeometry(0.33, 0.33, 0.24, 16);
-      wheelGeom.rotateZ(Math.PI / 2);
-
-      const rimGeom = new THREE.CylinderGeometry(0.22, 0.22, 0.25, 8);
-      rimGeom.rotateZ(Math.PI / 2);
-
-      const ruoteCoord = [
-        [-0.91,  1.32, 0.33], // Anteriore SX
-        [ 0.91,  1.32, 0.33], // Anteriore DX
-        [-0.91, -1.32, 0.33], // Posteriore SX
-        [ 0.91, -1.32, 0.33]  // Posteriore DX
-      ];
-
-      ruoteCoord.forEach(pos => {
-        const wheel = new THREE.Mesh(wheelGeom, gommaPneumatico);
-        wheel.position.set(pos[0], pos[1], pos[2]);
-        car.add(wheel);
-
-        const rim = new THREE.Mesh(rimGeom, cerchioLega);
-        rim.position.set(pos[0], pos[1], pos[2]);
-        car.add(rim);
-      });
-
-      // 8. Ombra morbida al suolo (Ambient Occlusion)
-      const shadowGeom = new THREE.PlaneGeometry(2.3, 4.8);
-      const shadowMat = new THREE.MeshBasicMaterial({
-        color: 0x000000,
-        transparent: true,
-        opacity: 0.55
-      });
-      const shadowPlane = new THREE.Mesh(shadowGeom, shadowMat);
-      shadowPlane.position.set(0, 0, 0.02);
-      car.add(shadowPlane);
-
-      return car;
-    }
-
-    // Configurazione Layer Personalizzato WebGL Three.js per MapLibre
-    let threeRenderer, threeScene, threeCamera, car3DMesh;
-
-    const threeCarLayer = {
-      id: 'threejs-car-layer',
-      type: 'custom',
-      renderingMode: '3d',
-      onAdd: function (m, gl) {
-        threeCamera = new THREE.Camera();
-        threeScene = new THREE.Scene();
-
-        // Illuminazione Ambientale e Direzionale per Riflessi Carrozzeria
-        const ambient = new THREE.AmbientLight(0xffffff, 0.8);
-        threeScene.add(ambient);
-
-        const sole = new THREE.DirectionalLight(0xffffff, 1.4);
-        sole.position.set(20, -50, 70).normalize();
-        threeScene.add(sole);
-
-        const luceFiancata = new THREE.DirectionalLight(0x00b4d8, 0.5);
-        luceFiancata.position.set(-30, 40, 30).normalize();
-        threeScene.add(luceFiancata);
-
-        car3DMesh = creaVettura3D();
-        threeScene.add(car3DMesh);
-
-        threeRenderer = new THREE.WebGLRenderer({
-          canvas: m.getCanvas(),
-          context: gl,
-          antialias: true
-        });
-        threeRenderer.autoClear = false;
-      },
-      render: function (gl, args) {
-        if (!car3DMesh) return;
-
-        // Calcola coordinate Mercator per ancorare l'auto al suolo
-        const merc = maplibregl.MercatorCoordinate.fromLngLat([userLocation.lon, userLocation.lat], 0);
-
-        // Scala in metri: a zoom ravvicinato (16-19) scala reale 1:1, a zoom lontano mantiene visibilità
-        const currentZoom = map.getZoom();
-        const baseScale = merc.meterInMercatorCoordinateUnits();
-        const zoomBoost = currentZoom < 15.5 ? Math.pow(1.3, 15.5 - currentZoom) : 1.0;
-        const finalScale = baseScale * zoomBoost;
-
-        const rotationX = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(1, 0, 0), Math.PI / 2);
-        const rotationZ = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(0, 0, 1), -(userHeading * Math.PI) / 180);
-
-        // Matrice di proiezione MapLibre
-        const matrixArray = (args && args.length === 16) ? args : (args && args.defaultProjectionData ? args.defaultProjectionData.mainMatrix : map.transform.projMatrix);
-        if (!matrixArray || matrixArray.length !== 16) return;
-
-        const projMat = new THREE.Matrix4().fromArray(matrixArray);
-        const modelMat = new THREE.Matrix4()
-          .makeTranslation(merc.x, merc.y, merc.z)
-          .scale(new THREE.Vector3(finalScale, -finalScale, finalScale))
-          .multiply(rotationX)
-          .multiply(rotationZ);
-
-        threeCamera.projectionMatrix = projMat.multiply(modelMat);
-        threeRenderer.resetState();
-        threeRenderer.render(threeScene, threeCamera);
-        map.triggerRepaint();
-      }
-    };
+    const userMarker = new maplibregl.Marker({ element: carEl, rotationAlignment: 'map' })
+      .setLngLat([userLocation.lon, userLocation.lat])
+      .addTo(map);
 
     let destMarker = null;
 
     // 1. CARICAMENTO LAYER 3D EDIFICI E ROTTA
     map.on('load', () => {
-      // Inserisce l'auto 3D WebGL Three.js sopra il terreno e sotto le etichette
-      try {
-        map.addLayer(threeCarLayer);
-      } catch (e) {
-        console.error("Three.js car layer error:", e);
-      }
-
       const layers = map.getStyle().layers;
       let labelLayerId;
       for (let i = 0; i < layers.length; i++) {
@@ -1030,18 +875,18 @@
     if ('geolocation' in navigator) {
       navigator.geolocation.getCurrentPosition(pos => {
         userLocation = { lat: pos.coords.latitude, lon: pos.coords.longitude };
-        map.triggerRepaint();
+        userMarker.setLngLat([userLocation.lon, userLocation.lat]);
         aggiornaTelecameraAutomotive(16);
         aggiornaNomeStradaAttuale(userLocation);
       }, null, { enableHighAccuracy: true });
 
       navigator.geolocation.watchPosition(pos => {
         userLocation = { lat: pos.coords.latitude, lon: pos.coords.longitude };
-        map.triggerRepaint();
+        userMarker.setLngLat([userLocation.lon, userLocation.lat]);
 
         if (pos.coords.heading !== null && !isNaN(pos.coords.heading)) {
           userHeading = pos.coords.heading;
-          map.triggerRepaint();
+          userMarker.setRotation(userHeading);
         }
         if (pos.coords.speed !== null && !isNaN(pos.coords.speed)) {
           userSpeedKmh = Math.round(pos.coords.speed * 3.6);
