@@ -678,16 +678,9 @@
         <button onclick="toggleAiDrawer()" style="background:none; border:none; color:var(--text-muted); cursor:pointer;"><i data-lucide="x" style="width:14px; height:14px;"></i></button>
       </div>
       
-      <div style="display:flex; gap:6px; flex-wrap:wrap;">
-        <button class="ai-chip active" onclick="selezionaChip(this, 'Evita tassativamente tutte le autostrade e i pedaggi: usa solo strade statali ordinarie.')">🚫 Evita Autostrade</button>
-        <button class="ai-chip" onclick="selezionaChip(this, 'Autostrada comoda a corsie separate anche se allungo sul percorso.')">🛣️ Autostrada Relax</button>
-        <button class="ai-chip" onclick="selezionaChip(this, 'Strada panoramica: privilegia litorali, coste e laghi, escludi autostrade.')">🌊 Panoramico</button>
-        <button class="ai-chip" onclick="selezionaChip(this, 'Percorso standard più veloce.')">⚡ Standard</button>
-      </div>
-
-      <!-- Riga Input con Tasto Freccia Invia dedicato nel cassetto AI -->
+      <!-- Riga Input con Tasto Freccia Invia dedicato nel cassetto AI (Casella Unica) -->
       <div style="display:flex; gap:8px; align-items:center; width:100%;">
-        <input type="text" id="ai-custom-prompt" placeholder="Istruzione per l'AI (es. solo autostrada a 3 corsie)..." style="flex:1; background:rgba(255,255,255,0.06); border:1px solid var(--easylink-border); border-radius:10px; padding:8px 12px; color:white; font-size:12px; outline:none;" value="Evita tassativamente tutte le autostrade e i pedaggi: usa solo strade statali ordinarie.">
+        <input type="text" id="ai-custom-prompt" placeholder="Istruzioni o preferenze per l'IA (es. evita autostrade, panoramico, evita centri urbani)..." style="flex:1; background:rgba(255,255,255,0.06); border:1px solid var(--easylink-border); border-radius:10px; padding:9px 12px; color:white; font-size:12px; outline:none;" value="">
         
         <button onclick="eseguiInvioPercorso()" id="btn-send-drawer" title="Invia preferenze e calcola" style="background:linear-gradient(135deg, #10b981 0%, #059669 100%); border:none; color:white; width:34px; height:34px; border-radius:10px; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; box-shadow:0 2px 10px rgba(16,185,129,0.5);">
           <i data-lucide="arrow-right" style="width:18px; height:18px;"></i>
@@ -1171,10 +1164,10 @@
     }
 
     function selezionaChip(el, text) {
-      document.querySelectorAll('.ai-chip').forEach(c => c.classList.remove('active'));
-      el.classList.add('active');
-      document.getElementById('ai-custom-prompt').value = text;
-      aiPromptValue = text;
+      // Mantenuto per compatibilità opzionale
+      if (document.getElementById('ai-custom-prompt')) {
+        document.getElementById('ai-custom-prompt').value = text;
+      }
     }
 
     async function calcolaPercorso() {
@@ -1184,9 +1177,41 @@
 
       const customPrompt = document.getElementById('ai-custom-prompt') ? document.getElementById('ai-custom-prompt').value.trim() : "";
 
-      // Se l'utente ha aperto il drawer AI o ha impostato preferenze specifiche, interroga /api/plan
-      if (isAiDrawerOpen || customPrompt) {
-        showToast("Consultazione OpenAI in corso...");
+      // 1. Calcolo del percorso standard iniziale (baseline precalcolato)
+      let baselineRoute = null;
+      try {
+        const baseCoords = ;
+        const baseUrl = ;
+        const baseRes = await fetch(baseUrl);
+        const baseData = await baseRes.json();
+        if (baseData.routes && baseData.routes.length > 0) {
+          baselineRoute = baseData.routes[0];
+        }
+      } catch (err) {
+        console.warn("Errore calcolo rotta precalcolata OSRM:", err);
+      }
+
+      if (!baselineRoute) {
+        showToast("Nessun percorso trovato tra partenza e arrivo.");
+        return;
+      }
+
+      // Estrazione arterie e strade utilizzate nel percorso precalcolato
+      const uniqueRoads = [];
+      if (baselineRoute.legs && baselineRoute.legs[0] && baselineRoute.legs[0].steps) {
+        baselineRoute.legs[0].steps.forEach(s => {
+          const name = (s.name || "").trim();
+          const ref = (s.ref || "").trim();
+          const road = [ref, name].filter(Boolean).join(" ");
+          if (road && !uniqueRoads.includes(road)) {
+            uniqueRoads.push(road);
+          }
+        });
+      }
+
+      // 2. Se l'utente ha inserito una richiesta per l'AI, invia il percorso precalcolato all'AI per farlo modificare
+      if (customPrompt) {
+        showToast("Ottimizzazione con OpenAI in corso...");
         try {
           const aiRes = await fetch('/api/plan', {
             method: 'POST',
@@ -1194,7 +1219,12 @@
             body: JSON.stringify({
               origin: { lat: userLocation.lat, lon: userLocation.lon, name: "La mia posizione" },
               destination: destLocation,
-              preferences: customPrompt
+              preferences: customPrompt,
+              baseline_route: {
+                distance_km: (baselineRoute.distance / 1000).toFixed(1),
+                duration_min: Math.round(baselineRoute.duration / 60),
+                roads: uniqueRoads
+              }
             })
           });
 
@@ -1214,24 +1244,46 @@
             }
           }
         } catch (e) {
-          console.warn("Chiamata AI non riuscita, procedo con rotta standard:", e);
+          console.warn("Chiamata AI non riuscita, mantengo percorso precalcolato:", e);
         }
       }
 
-      // Costruzione dell'itinerario OSRM con eventuali punti di passaggio dell'AI
-      const allPoints = [{ lon: userLocation.lon, lat: userLocation.lat }, ...waypoints.map(w => ({ lon: w.lon, lat: w.lat })), { lon: destLocation.lon, lat: destLocation.lat }];
-      const coordsString = allPoints.map(p => `${p.lon},${p.lat}`).join(';');
-      const url = `https://router.project-osrm.org/route/v1/driving/${coordsString}?overview=full&geometries=geojson&steps=true`;
+      // 3. Se l'AI ha fornito waypoints per modificare il percorso, ricalcoliamo con OSRM
+      if (waypoints.length > 0) {
+        showToast("Ricalcolo con modifiche AI...");
+        const allPoints = [{ lon: userLocation.lon, lat: userLocation.lat }, ...waypoints.map(w => ({ lon: w.lon, lat: w.lat })), { lon: destLocation.lon, lat: destLocation.lat }];
+        const coordsString = allPoints.map(p => ).join(';');
+        const url = ;
+
+        try {
+          const res = await fetch(url);
+          const data = await res.json();
+          if (data.routes && data.routes.length) {
+            activeRoute = data.routes[0];
+          } else {
+            activeRoute = baselineRoute;
+          }
+        } catch (err) {
+          console.warn("Errore ricalcolo OSRM con waypoints:", err);
+          activeRoute = baselineRoute;
+        }
+      } else {
+        // Nessuna modifica richiesta o rotta standard
+        activeRoute = baselineRoute;
+      }
+          } else {
+            activeRoute = baselineRoute;
+          }
+        } catch (err) {
+          console.warn("Errore ricalcolo OSRM con waypoints:", err);
+          activeRoute = baselineRoute;
+        }
+      } else {
+        // Nessuna modifica richiesta o rotta standard
+        activeRoute = baselineRoute;
+      }
 
       try {
-        const res = await fetch(url);
-        const data = await res.json();
-        if (!data.routes || !data.routes.length) {
-          showToast("Nessun percorso trovato.");
-          return;
-        }
-
-        activeRoute = data.routes[0];
 
         // Mostra o nascondi banner spiegazione AI
         const aiBanner = document.getElementById('ai-rationale-banner');
