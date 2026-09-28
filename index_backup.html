@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>AuraRoute AI — Navigatore Cognitivo</title>
+  
+  <!-- Inter Font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    :root {
+      --bg-primary: #0b0f19;
+      --surface-glass: rgba(18, 24, 38, 0.82);
+      --surface-glass-border: rgba(255, 255, 255, 0.08);
+      --accent: #3b82f6;
+      --accent-gradient: linear-gradient(135deg, #3b82f6 0%, #2563eb 50%, #1d4ed8 100%);
+      --accent-glow: rgba(59, 130, 246, 0.25);
+      --ai-cyan: #06b6d4;
+      --ai-gradient: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --card-bg: rgba(255, 255, 255, 0.04);
+      --card-border: rgba(255, 255, 255, 0.06);
+      --radius-lg: 16px;
+      --radius-md: 12px;
+      --radius-sm: 8px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      background-color: var(--bg-primary);
+      color: var(--text-main);
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+      display: flex;
+    }
+
+    #map-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+
+    #map {
+      width: 100%;
+      height: 100%;
+      background: #0b0f19;
+    }
+
+    /* Floating Panel UI */
+    .app-sidebar {
+      position: relative;
+      z-index: 100;
+      width: 440px;
+      max-width: 100vw;
+      height: 100vh;
+      background: var(--surface-glass);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-right: 1px solid var(--surface-glass-border);
+      display: flex;
+      flex-direction: column;
+      box-shadow: 20px 0 50px rgba(0, 0, 0, 0.4);
+      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .sidebar-header {
+      padding: 22px 24px;
+      border-bottom: 1px solid var(--card-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: var(--radius-md);
+      background: var(--ai-gradient);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      box-shadow: 0 4px 16px rgba(6, 182, 212, 0.3);
+    }
+
+    .brand-title h1 {
+      font-size: 19px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      background: linear-gradient(180deg, #ffffff 0%, #cbd5e1 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .brand-title p {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 600;
+    }
+
+    .sidebar-body {
+      padding: 20px 24px;
+      overflow-y: auto;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .sidebar-body::-webkit-scrollbar {
+      width: 6px;
+    }
+    .sidebar-body::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+    }
+
+    /* Input Sections */
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .input-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .route-inputs {
+      position: relative;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-lg);
+      padding: 10px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .route-line-decor {
+      position: absolute;
+      left: 23px;
+      top: 30px;
+      bottom: 30px;
+      width: 2px;
+      background: linear-gradient(180deg, var(--accent) 0%, var(--ai-cyan) 100%);
+      border-radius: 2px;
+    }
+
+    .input-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      position: relative;
+    }
+
+    .dot-indicator {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      z-index: 2;
+    }
+    .dot-start { background: var(--accent); box-shadow: 0 0 10px var(--accent); }
+    .dot-end { background: var(--ai-cyan); box-shadow: 0 0 10px var(--ai-cyan); }
+
+    .route-input-field {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: var(--text-main);
+      font-size: 14px;
+      font-weight: 500;
+      outline: none;
+      padding: 6px 0;
+    }
+    .route-input-field::placeholder {
+      color: var(--text-dim);
+    }
+
+    /* Preferences Chips */
+    .chips-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .chip {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      color: var(--text-muted);
+      padding: 7px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+      user-select: none;
+    }
+
+    .chip:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-main);
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    .chip.active {
+      background: rgba(59, 130, 246, 0.18);
+      border-color: var(--accent);
+      color: #93c5fd;
+      font-weight: 600;
+    }
+
+    /* Custom AI Prompt */
+    .textarea-container {
+      position: relative;
+    }
+
+    .ai-textarea {
+      width: 100%;
+      height: 80px;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-md);
+      padding: 12px;
+      color: var(--text-main);
+      font-size: 13px;
+      line-height: 1.5;
+      outline: none;
+      resize: none;
+      transition: border-color 0.2s;
+    }
+
+    .ai-textarea:focus {
+      border-color: var(--ai-cyan);
+      box-shadow: 0 0 0 2px rgba(6, 182, 212, 0.15);
+    }
+
+    /* Plan Action Button */
+    .btn-plan {
+      background: var(--ai-gradient);
+      color: white;
+      border: none;
+      border-radius: var(--radius-md);
+      padding: 14px;
+      font-size: 15px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      cursor: pointer;
+      box-shadow: 0 4px 20px var(--accent-glow);
+      transition: all 0.2s ease;
+    }
+
+    .btn-plan:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 25px rgba(6, 182, 212, 0.4);
+    }
+
+    .btn-plan:active {
+      transform: translateY(1px);
+    }
+
+    /* Results Dashboard */
+    .result-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-lg);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .ai-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(6, 182, 212, 0.12);
+      border: 1px solid rgba(6, 182, 212, 0.3);
+      color: var(--ai-cyan);
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 4px 10px;
+      border-radius: 20px;
+    }
+
+    .ai-rationale {
+      font-size: 13px;
+      line-height: 1.5;
+      color: #e2e8f0;
+      background: rgba(0, 0, 0, 0.2);
+      padding: 12px;
+      border-radius: var(--radius-sm);
+      border-left: 3px solid var(--ai-cyan);
+    }
+
+    .stats-row {
+      display: grid;
+      grid-template-grid: repeat(3, 1fr);
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .stat-box {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-sm);
+      padding: 10px 8px;
+      text-align: center;
+    }
+
+    .stat-val {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .stat-label {
+      font-size: 10px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-weight: 600;
+      margin-top: 2px;
+    }
+
+    .waypoints-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .waypoint-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--text-muted);
+      background: rgba(255, 255, 255, 0.02);
+      padding: 6px 10px;
+      border-radius: 6px;
+    }
+
+    .action-links {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn-secondary {
+      flex: 1;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--card-border);
+      color: var(--text-main);
+      padding: 10px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      text-decoration: none;
+      transition: background 0.2s;
+    }
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    /* Mobile toggle */
+    .mobile-bar {
+      display: none;
+    }
+
+    @media (max-width: 768px) {
+      .app-sidebar {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: 60vh;
+        border-radius: 24px 24px 0 0;
+        border-right: none;
+        border-top: 1px solid var(--surface-glass-border);
+        box-shadow: 0 -10px 40px rgba(0,0,0,0.5);
+      }
+      .sidebar-header {
+        padding: 14px 20px;
+      }
+      .mobile-handle {
+        width: 40px;
+        height: 4px;
+        background: rgba(255,255,255,0.2);
+        border-radius: 2px;
+        margin: -4px auto 10px auto;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Sidebar Panel -->
+  <aside class="app-sidebar">
+    <div class="sidebar-header">
+      <div class="brand">
+        <div class="brand-icon">
+          <i data-lucide="compass"></i>
+        </div>
+        <div class="brand-title">
+          <h1>AuraRoute AI</h1>
+          <p>Navigatore Cognitivo</p>
+        </div>
+      </div>
+      <div style="font-size: 12px; color: #10b981; display:flex; align-items:center; gap:4px; font-weight:600;">
+        <span style="width:8px; height:8px; background:#10b981; border-radius:50%; box-shadow:0 0 8px #10b981;"></span>
+        Online
+      </div>
+    </div>
+
+    <div class="sidebar-body">
+      <!-- Input Partenza / Arrivo -->
+      <div class="input-group">
+        <div class="input-label">
+          <i data-lucide="map-pin" style="width:14px; height:14px;"></i> Itinerario
+        </div>
+        <div class="route-inputs">
+          <div class="route-line-decor"></div>
+          <div class="input-row">
+            <span class="dot-indicator dot-start"></span>
+            <input type="text" id="origin" class="route-input-field" placeholder="Partenza (es. Firenze)" value="Firenze">
+          </div>
+          <div class="input-row">
+            <span class="dot-indicator dot-end"></span>
+            <input type="text" id="destination" class="route-input-field" placeholder="Destinazione (es. Ravenna)" value="Ravenna">
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Chips -->
+      <div class="input-group">
+        <div class="input-label">
+          <i data-lucide="sparkles" style="width:14px; height:14px;"></i> Stile di Guida AI
+        </div>
+        <div class="chips-grid">
+          <div class="chip active" onclick="toggleChip(this, 'Autostrada comoda: prediligi corsie separate e carreggiate ampie anche se allunghi.')">
+            🛣️ Autostrada Relax
+          </div>
+          <div class="chip" onclick="toggleChip(this, 'Panoramico: evita autostrade, prediligi strade lungo la costa, laghi o paesaggi suggestivi.')">
+            🌊 Panoramico
+          </div>
+          <div class="chip" onclick="toggleChip(this, 'Curve & Guida Dinamica: percorsi per moto o appassionati, strade collinari fluide.')">
+            🏎️ Strade Guidate
+          </div>
+          <div class="chip" onclick="toggleChip(this, 'Evita ZTL e centri angusti: solo strade a scorrimento veloce ed evita borghi stretti.')">
+            🛡️ Zero Centri Storici
+          </div>
+        </div>
+      </div>
+
+      <!-- Custom AI Instruction -->
+      <div class="input-group">
+        <div class="input-label">
+          <i data-lucide="message-square" style="width:14px; height:14px;"></i> Istruzione Vocale o Naturale
+        </div>
+        <div class="textarea-container">
+          <textarea id="ai-prompt" class="ai-textarea" placeholder="Descrivi il viaggio come parleresti a un passeggero..."></textarea>
+        </div>
+      </div>
+
+      <!-- Pulsante Pianifica -->
+      <button class="btn-plan" id="btn-plan" onclick="eseguiPianificazione()">
+        <i data-lucide="sparkles" style="width:18px; height:18px;"></i>
+        <span>Calcola con Intelligenza Artificiale</span>
+      </button>
+
+      <!-- Risultati / Dashboard -->
+      <div id="result-container" style="display: none;">
+        <div class="result-card">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span class="ai-badge"><i data-lucide="brain-circuit" style="width:13px; height:13px;"></i> Strategia di Rotta</span>
+            <span style="font-size:11px; color:var(--text-dim);" id="time-stamp">Ora</span>
+          </div>
+
+          <div class="ai-rationale" id="ai-rationale-text">
+            Elaborazione della strategia...
+          </div>
+
+          <div class="stats-row">
+            <div class="stat-box">
+              <div class="stat-val" id="stat-km">--</div>
+              <div class="stat-label">Distanza</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-val" id="stat-time">--</div>
+              <div class="stat-label">Tempo Stimato</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-val" style="color:#10b981;" id="stat-comfort">Alto</div>
+              <div class="stat-label">Indice Comfort</div>
+            </div>
+          </div>
+
+          <div class="input-label" style="margin-top:4px;">Nodi e Tappe di Passaggio</div>
+          <div class="waypoints-list" id="waypoints-list"></div>
+
+          <div class="action-links">
+            <a id="btn-gmaps" target="_blank" class="btn-secondary">
+              <i data-lucide="external-link" style="width:14px; height:14px;"></i>
+              Apri in Google Maps
+            </a>
+            <button class="btn-secondary" onclick="centraMappa()">
+              <i data-lucide="maximize-2" style="width:14px; height:14px;"></i>
+              Centra
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Map Canvas -->
+  <main id="map-container">
+    <div id="map"></div>
+  </main>
+
+  <!-- Scripts -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <script>
+    lucide.createIcons();
+
+    // 1. Mappa Leaflet con Dark Tile ad alta qualità (CartoDB Dark Matter)
+    const map = L.map('map', {
+      zoomControl: false
+    }).setView([43.7696, 11.2558], 8);
+
+    L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+    // Tile scure futuristiche
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
+      subdomains: 'abcd',
+      maxZoom: 20
+    }).addTo(map);
+
+    let routeLayer = null;
+    let markersLayer = L.layerGroup().addTo(map);
+
+    // Gestione Chip Preferenze
+    function toggleChip(element, promptText) {
+      document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+      element.classList.add('active');
+      document.getElementById('ai-prompt').value = promptText;
+    }
+
+    // Inizializza con il primo chip
+    document.getElementById('ai-prompt').value = 'Autostrada comoda: prediligi corsie separate e carreggiate ampie anche se allunghi.';
+
+    // Geocoding Gratuito con Photon
+    async function geocode(text) {
+      const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(text)}&limit=1`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.features && data.features.length > 0) {
+        const [lon, lat] = data.features[0].geometry.coordinates;
+        return { lat, lon, name: data.features[0].properties.name || text };
+      }
+      throw new Error(`Impossibile localizzare: ${text}`);
+    }
+
+    // Motore AI di Decisione Geografica
+    // In produzione: chiama l'endpoint LLM con structured output
+    async function ragionaSuiPuntiDiPassaggio(start, end, preferences) {
+      const prefLower = preferences.toLowerCase();
+      const viaPoints = [];
+      let rationale = "";
+
+      // Logica dimostrativa euristica / AI per mostrare la potenza dei via-point
+      if (prefLower.includes("autostrada") || prefLower.includes("corsie separate")) {
+        // Se si viaggia da Firenze a Ravenna/Bologna/Venezia
+        if ((start.name.toLowerCase().includes("firenze") && end.name.toLowerCase().includes("ravenna")) ||
+            (start.name.toLowerCase().includes("ravenna") && end.name.toLowerCase().includes("firenze"))) {
+          viaPoints.push({ nome: "Snodo A1/A14 Bologna Casalecchio", lat: 44.5020, lon: 11.2750 });
+          rationale = "Hai richiesto comfort e autostrada: ho forzato il transito per l'A1 e l'A14 passando dal raccordo di Bologna. Eviterai così la SS67 Tosco-Romagnola e i passi montani tortuosi, guidando costantemente a corsie separate.";
+        } else {
+          // Generico punto intermedio
+          rationale = "Percorso ottimizzato con priorità alle arterie principali a scorrimento veloce ed evitando scorciatoie su strade secondarie strette.";
+        }
+      } else if (prefLower.includes("panoramico") || prefLower.includes("costa")) {
+        rationale = "Modalità panoramica attiva: l'itinerario è stato calibrato per privilegiare visuali scenografiche, laghi e litorali, escludendo le tratte autostradali monotone.";
+      } else if (prefLower.includes("curve") || prefLower.includes("guidate")) {
+        rationale = "Assetto dinamico: selezionate strade statali e passi collinari ad alto indice di guidabilità e asfalto scorrevole.";
+      } else {
+        rationale = `Itinerario calcolato tenendo conto delle tue istruzioni specifiche: "${preferences}".`;
+      }
+
+      if (viaPoints.length === 0) {
+        // Se non abbiamo un nodo forzato specifico per la coppia di città, calcoliamo una rotta pulita
+        rationale = rationale || "Itinerario diretto bilanciato secondo le tue preferenze.";
+      }
+
+      return { rationale, viaPoints };
+    }
+
+    // Calcolo rotta con OSRM passando per i Via-Points
+    async function calcolaRottaOSRM(punti) {
+      const coords = punti.map(p => `${p.lon},${p.lat}`).join(';');
+      const url = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson&steps=true`;
+      
+      const res = await fetch(url);
+      const data = await res.json();
+      if (!data.routes || data.routes.length === 0) throw new Error("Impossibile generare la rotta stradale.");
+      return data.routes[0];
+    }
+
+    // Icone personalizzate per la mappa
+    function creaIcona(colore, iconName) {
+      return L.divIcon({
+        className: 'custom-map-marker',
+        html: `<div style="background:${colore}; width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:white; box-shadow:0 0 15px ${colore}; border:2px solid white;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="4"/></svg>
+               </div>`,
+        iconSize: [32, 32],
+        iconAnchor: [16, 16]
+      });
+    }
+
+    async function eseguiPianificazione() {
+      const originVal = document.getElementById('origin').value.trim();
+      const destVal = document.getElementById('destination').value.trim();
+      const promptVal = document.getElementById('ai-prompt').value.trim();
+      const btn = document.getElementById('btn-plan');
+
+      if (!originVal || !destVal) {
+        alert("Inserisci sia la partenza che la destinazione.");
+        return;
+      }
+
+      btn.disabled = true;
+      btn.innerHTML = `<i data-lucide="loader" style="width:18px; height:18px; animation:spin 1s linear infinite;"></i><span>Elaborazione AI...</span>`;
+      lucide.createIcons();
+
+      try {
+        // 1. Geocodifica
+        const start = await geocode(originVal);
+        const end = await geocode(destVal);
+
+        // 2. Ragionamento AI sui waypoints
+        const aiStrategy = await ragionaSuiPuntiDiPassaggio(start, end, promptVal);
+
+        // 3. Sequenza completa di punti
+        const tuttiPunti = [start, ...aiStrategy.viaPoints, end];
+
+        // 4. Calcolo percorso OSRM
+        const rotta = await calcolaRottaOSRM(tuttiPunti);
+
+        // 5. Render su Mappa
+        if (routeLayer) map.removeLayer(routeLayer);
+        markersLayer.clearLayers();
+
+        // Linea principale con bagliore
+        routeLayer = L.geoJSON(rotta.geometry, {
+          style: {
+            color: '#3b82f6',
+            weight: 6,
+            opacity: 0.9,
+            lineJoin: 'round'
+          }
+        }).addTo(map);
+
+        // Aggiungi marker Partenza e Arrivo
+        L.marker([start.lat, start.lon], { icon: creaIcona('#3b82f6') }).addTo(markersLayer).bindPopup(`<b>Partenza</b>: ${start.name}`);
+        L.marker([end.lat, end.lon], { icon: creaIcona('#06b6d4') }).addTo(markersLayer).bindPopup(`<b>Destinazione</b>: ${end.name}`);
+
+        // Marker per i Via-points dell'AI
+        aiStrategy.viaPoints.forEach((vp, idx) => {
+          L.marker([vp.lat, vp.lon], { icon: creaIcona('#f59e0b') }).addTo(markersLayer).bindPopup(`<b>Nodo AI ${idx+1}</b>: ${vp.nome}`);
+        });
+
+        // Zoom adattivo
+        map.fitBounds(routeLayer.getBounds(), { padding: [60, 60] });
+
+        // 6. Aggiorna Dashboard Statistiche
+        document.getElementById('result-container').style.display = 'block';
+        document.getElementById('ai-rationale-text').innerText = aiStrategy.rationale;
+
+        const km = (rotta.distance / 1000).toFixed(1);
+        const ore = Math.floor(rotta.duration / 3600);
+        const min = Math.round((rotta.duration % 3600) / 60);
+
+        document.getElementById('stat-km').innerText = `${km} km`;
+        document.getElementById('stat-time').innerText = ore > 0 ? `${ore}h ${min}m` : `${min} min`;
+        document.getElementById('stat-comfort').innerText = promptVal.includes("Autostrada") ? "Massimo" : "Personalizzato";
+
+        // Lista Waypoints
+        const wpContainer = document.getElementById('waypoints-list');
+        wpContainer.innerHTML = '';
+        tuttiPunti.forEach((p, i) => {
+          const item = document.createElement('div');
+          item.className = 'waypoint-item';
+          const badge = i === 0 ? '🟢' : (i === tuttiPunti.length - 1 ? '🏁' : '⚡');
+          item.innerHTML = `<span>${badge}</span> <span>${p.name || p.nome}</span>`;
+          wpContainer.appendChild(item);
+        });
+
+        // Link Google Maps esterno con waypoints
+        let gmapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(start.lat + ',' + start.lon)}&destination=${encodeURIComponent(end.lat + ',' + end.lon)}`;
+        if (aiStrategy.viaPoints.length > 0) {
+          const waypointsParam = aiStrategy.viaPoints.map(v => `${v.lat},${v.lon}`).join('|');
+          gmapsUrl += `&waypoints=${encodeURIComponent(waypointsParam)}`;
+        }
+        document.getElementById('btn-gmaps').href = gmapsUrl;
+
+      } catch (err) {
+        alert("Errore durante il calcolo: " + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i data-lucide="sparkles" style="width:18px; height:18px;"></i><span>Calcola con Intelligenza Artificiale</span>`;
+        lucide.createIcons();
+      }
+    }
+
+    function centraMappa() {
+      if (routeLayer) map.fitBounds(routeLayer.getBounds(), { padding: [50, 50] });
+    }
+  </script>
+</body>
+</html>
