@@ -1,0 +1,12 @@
+# Sistema operativo
+.DS_Store
+Thumbs.db
+
+# File di configurazione / chiavi private
+.env
+.env.local
+
+# Dipendenze future
+node_modules/
+dist/
+.cache/
