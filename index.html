@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>AuraRoute — Navigatore Reale con Joystick & Auto-Zoom</title>
+  <title>AuraRoute — Sistema di Navigazione Automotive</title>
   
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   
   <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -17,16 +17,14 @@
 
   <style>
     :root {
-      --bg: #0b0f19;
-      --card-bg: rgba(17, 24, 39, 0.94);
-      --border: rgba(255, 255, 255, 0.12);
-      --accent: #2563eb;
-      --nav-green: #10b981;
-      --nav-cyan: #06b6d4;
-      --nav-red: #ef4444;
-      --text: #f9fafb;
-      --text-muted: #9ca3af;
-      --radius: 16px;
+      --easylink-dark: #0f141c;
+      --easylink-blue: #0072ce;
+      --easylink-cyan: #00b4d8;
+      --easylink-green: #10b981;
+      --easylink-card: rgba(15, 23, 36, 0.94);
+      --easylink-border: rgba(255, 255, 255, 0.12);
+      --text: #ffffff;
+      --text-muted: #94a3b8;
     }
 
     * {
@@ -39,7 +37,7 @@
     }
 
     body {
-      background: var(--bg);
+      background: var(--easylink-dark);
       color: var(--text);
       overflow: hidden;
       height: 100vh;
@@ -47,275 +45,403 @@
       position: relative;
     }
 
-    #map {
+    /* Mappa e Prospettiva 3D Automotive */
+    #map-viewport {
       width: 100%;
       height: 100%;
-      z-index: 1;
-      background: #e5e7eb;
+      position: absolute;
+      top: 0;
+      left: 0;
+      perspective: 800px;
+      overflow: hidden;
+      background: #e2e8f0;
     }
 
-    /* Floating Search Bar */
-    #search-container {
+    #map {
+      width: 100%;
+      height: 120%;
+      position: absolute;
+      top: -10%;
+      left: 0;
+      transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    /* Stile 3D Inception Easy Link: mappa inclinata con punto di fuga orizzontale */
+    .view-3d #map {
+      transform: rotateX(42deg) translateZ(0);
+      transform-origin: 50% 85%;
+    }
+
+    /* Top Navigation Banner: Stile Easy Link con Manovra e Lane Guidance */
+    #nav-header-easylink {
       position: absolute;
       top: 16px;
       left: 16px;
       right: 16px;
-      max-width: 480px;
-      z-index: 400;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .search-card {
-      background: var(--card-bg);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 12px 14px;
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
-    }
-
-    .search-row {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .search-input {
-      flex: 1;
-      background: transparent;
-      border: none;
-      color: var(--text);
-      font-size: 15px;
-      font-weight: 500;
-      outline: none;
-    }
-    .search-input::placeholder {
-      color: var(--text-muted);
-    }
-
-    /* Dropdown Suggerimenti */
-    #suggestions {
-      background: var(--card-bg);
-      backdrop-filter: blur(16px);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      max-height: 220px;
-      overflow-y: auto;
-      display: none;
-      flex-direction: column;
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
-    }
-
-    .suggestion-item {
-      padding: 12px 14px;
-      font-size: 14px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-      cursor: pointer;
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
-    .suggestion-item:hover {
-      background: rgba(255, 255, 255, 0.08);
-    }
-    .suggestion-title {
-      font-weight: 600;
-      color: white;
-    }
-    .suggestion-sub {
-      font-size: 12px;
-      color: var(--text-muted);
-    }
-
-    /* Turn-by-Turn Navigation HUD (Top) */
-    #nav-hud {
-      position: absolute;
-      top: 16px;
-      left: 16px;
-      right: 16px;
-      max-width: 520px;
+      max-width: 580px;
       margin: 0 auto;
       z-index: 500;
-      background: #0f172a;
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      border-radius: var(--radius);
-      box-shadow: 0 12px 35px rgba(0, 0, 0, 0.6);
+      background: var(--easylink-card);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--easylink-border);
+      border-radius: 18px;
       padding: 14px 18px;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
       display: none;
+      flex-direction: column;
+      gap: 10px;
+      animation: slideDown 0.3s ease;
+    }
+
+    @keyframes slideDown {
+      from { transform: translateY(-20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    .nav-main-row {
+      display: flex;
       align-items: center;
       gap: 16px;
     }
 
-    .maneuver-icon-container {
-      width: 48px;
-      height: 48px;
-      background: var(--nav-green);
-      border-radius: 12px;
+    .maneuver-badge-box {
+      width: 52px;
+      height: 52px;
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      border-radius: 14px;
       display: flex;
       align-items: center;
       justify-content: center;
       color: white;
       flex-shrink: 0;
+      box-shadow: 0 4px 16px rgba(16, 185, 129, 0.35);
     }
 
-    .maneuver-text {
+    .maneuver-content {
       flex: 1;
       overflow: hidden;
     }
 
-    .maneuver-distance {
-      font-size: 22px;
-      font-weight: 800;
-      color: white;
-      line-height: 1.1;
+    .maneuver-dist-row {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
     }
 
-    .maneuver-street {
+    .maneuver-distance-val {
+      font-size: 26px;
+      font-weight: 900;
+      color: #ffffff;
+      line-height: 1;
+      letter-spacing: -0.02em;
+    }
+
+    .maneuver-stage-tag {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 2px 7px;
+      border-radius: 4px;
+      background: rgba(0, 180, 216, 0.2);
+      color: var(--easylink-cyan);
+      border: 1px solid rgba(0, 180, 216, 0.3);
+    }
+
+    .maneuver-street-name {
       font-size: 14px;
       font-weight: 600;
       color: var(--text-muted);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      margin-top: 4px;
+      margin-top: 3px;
     }
 
-    .junction-zoom-badge {
-      font-size: 11px;
-      color: var(--nav-cyan);
-      background: rgba(6, 182, 212, 0.15);
-      padding: 4px 8px;
-      border-radius: 6px;
-      font-weight: 700;
-      border: 1px solid rgba(6, 182, 212, 0.3);
-      display: none;
+    /* Barra di avvicinamento progressiva alla curva (Easy Link Distance Bar) */
+    .approach-progress-bar {
+      width: 100%;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 2px;
+      overflow: hidden;
     }
 
-    /* Bottom Status Bar */
-    #bottom-bar {
-      position: absolute;
-      bottom: 24px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 500;
-      background: var(--card-bg);
-      backdrop-filter: blur(16px);
-      border: 1px solid var(--border);
-      border-radius: 20px;
-      padding: 12px 20px;
+    .approach-progress-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #10b981, #00b4d8);
+      transition: width 0.2s linear;
+    }
+
+    /* Lane Guidance (Indicatore corsie Easy Link) */
+    #lane-guidance {
       display: none;
       align-items: center;
-      gap: 20px;
-      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
-      width: 90%;
-      max-width: 460px;
-      justify-content: space-between;
+      gap: 6px;
+      background: rgba(0, 0, 0, 0.4);
+      padding: 6px 12px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
     }
 
-    .stat-group {
+    .lane-arrow {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
       display: flex;
-      flex-direction: column;
-    }
-    .stat-value {
-      font-size: 17px;
-      font-weight: 800;
-      color: white;
-    }
-    .stat-label {
-      font-size: 11px;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      font-weight: 600;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255, 255, 255, 0.05);
+      color: #64748b;
     }
 
-    .btn-start {
-      background: var(--nav-green);
+    .lane-arrow.active {
+      background: var(--easylink-green);
       color: white;
-      border: none;
-      padding: 10px 18px;
-      border-radius: 12px;
-      font-weight: 700;
-      font-size: 14px;
-      cursor: pointer;
+      box-shadow: 0 0 10px rgba(16, 185, 129, 0.6);
+    }
+
+    /* Cartello Limite di Velocità (Traffic Sign Speed Limit Easy Link) */
+    #speed-limit-sign {
+      position: absolute;
+      top: 100px;
+      left: 18px;
+      z-index: 450;
+      width: 52px;
+      height: 52px;
+      background: #ffffff;
+      border: 6px solid #ef4444;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 19px;
+      font-weight: 900;
+      color: #111827;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+      letter-spacing: -0.05em;
+    }
+
+    /* Current Street Pill (In basso al centro, come Easy Link) */
+    #current-street-pill {
+      position: absolute;
+      bottom: 96px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 450;
+      background: rgba(15, 23, 42, 0.9);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--easylink-border);
+      border-radius: 20px;
+      padding: 6px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #f1f5f9;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
       display: flex;
       align-items: center;
       gap: 6px;
+      pointer-events: none;
+      max-width: 80vw;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
-    .btn-stop {
-      background: var(--nav-red);
-      color: white;
-      border: none;
-      padding: 8px 14px;
-      border-radius: 10px;
-      font-weight: 700;
-      font-size: 13px;
-      cursor: pointer;
-    }
-
-    /* Floating Map Controls (Destra) */
-    .map-controls {
+    /* Barra Riepilogo Percorso Inferiore (Easy Link Trip Info) */
+    #nav-footer-easylink {
       position: absolute;
-      right: 16px;
-      bottom: 100px;
-      z-index: 400;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 500;
+      background: var(--easylink-card);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--easylink-border);
+      border-radius: 18px;
+      padding: 12px 24px;
+      box-shadow: 0 12px 35px rgba(0, 0, 0, 0.5);
+      display: none;
+      align-items: center;
+      gap: 28px;
+    }
+
+    .footer-stat-box {
+      text-align: center;
+    }
+    .footer-stat-val {
+      font-size: 18px;
+      font-weight: 800;
+      color: white;
+    }
+    .footer-stat-lbl {
+      font-size: 10px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+
+    /* Selettore Viste Mappa (2D / 2D Nord / 3D come tasto "Viste" su Easy Link) */
+    #view-mode-selector {
+      position: absolute;
+      top: 100px;
+      right: 18px;
+      z-index: 450;
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 8px;
     }
 
-    .fab {
-      width: 48px;
-      height: 48px;
-      border-radius: 50%;
-      background: var(--card-bg);
+    .view-btn {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: var(--easylink-card);
       backdrop-filter: blur(10px);
-      border: 1px solid var(--border);
+      border: 1px solid var(--easylink-border);
       color: white;
       display: flex;
       align-items: center;
       justify-content: center;
       cursor: pointer;
-      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+      font-size: 12px;
+      font-weight: 800;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.35);
+      transition: all 0.2s;
     }
-    .fab.active {
-      border-color: var(--nav-cyan);
-      color: var(--nav-cyan);
+    .view-btn.active {
+      background: var(--easylink-blue);
+      border-color: var(--easylink-cyan);
+      box-shadow: 0 0 15px rgba(0, 114, 206, 0.6);
     }
 
-    /* JOYSTICK VIRTUALE (In basso a sinistra) */
-    #joystick-panel {
+    /* Barra Ricerca Iniziale */
+    #search-panel {
       position: absolute;
-      bottom: 24px;
+      top: 16px;
+      left: 16px;
+      right: 16px;
+      max-width: 480px;
+      margin: 0 auto;
+      z-index: 500;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .search-box {
+      background: var(--easylink-card);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--easylink-border);
+      border-radius: 16px;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+
+    .search-box input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: white;
+      font-size: 15px;
+      font-weight: 600;
+      outline: none;
+    }
+    .search-box input::placeholder {
+      color: var(--text-muted);
+    }
+
+    #search-results {
+      background: var(--easylink-card);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--easylink-border);
+      border-radius: 14px;
+      max-height: 240px;
+      overflow-y: auto;
+      display: none;
+      flex-direction: column;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+    }
+
+    .result-item {
+      padding: 12px 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .result-item:hover {
+      background: rgba(255, 255, 255, 0.08);
+    }
+    .result-title { font-weight: 700; color: white; font-size: 14px; }
+    .result-sub { font-size: 12px; color: var(--text-muted); }
+
+    /* Veicolo e Puntatore */
+    .vehicle-marker-box {
+      width: 44px;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.15s ease-out;
+    }
+
+    .vehicle-pointer {
+      width: 38px;
+      height: 38px;
+      background: var(--easylink-blue);
+      border: 3px solid #ffffff;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      box-shadow: 0 0 25px rgba(0, 114, 206, 0.9);
+    }
+
+    /* Freccia Incrocio Sull'Asfalto */
+    .easylink-junction-arrow {
+      width: 60px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      animation: pulseArrow 1.2s infinite alternate ease-in-out;
+    }
+
+    @keyframes pulseArrow {
+      from { transform: scale(0.9); opacity: 0.85; filter: drop-shadow(0 0 5px #10b981); }
+      to { transform: scale(1.15); opacity: 1; filter: drop-shadow(0 0 18px #10b981); }
+    }
+
+    /* Joystick Virtuale (Guida Manuale) */
+    #joystick-container {
+      position: absolute;
+      bottom: 20px;
       left: 20px;
       z-index: 600;
+      background: rgba(15, 23, 42, 0.88);
+      backdrop-filter: blur(14px);
+      border: 1px solid var(--easylink-border);
+      padding: 12px;
+      border-radius: 24px;
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 8px;
-      background: rgba(15, 23, 42, 0.85);
-      backdrop-filter: blur(12px);
-      border: 1px solid var(--border);
-      padding: 12px;
-      border-radius: 24px;
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
-    }
-
-    .joystick-title {
-      font-size: 10px;
-      font-weight: 800;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: var(--nav-cyan);
+      gap: 6px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
     }
 
     #joystick-base {
-      width: 110px;
-      height: 110px;
-      background: rgba(255, 255, 255, 0.06);
+      width: 100px;
+      height: 100px;
+      background: rgba(255, 255, 255, 0.05);
       border: 2px solid rgba(255, 255, 255, 0.15);
       border-radius: 50%;
       position: relative;
@@ -326,52 +452,16 @@
       justify-content: center;
     }
 
-    #joystick-stick {
-      width: 46px;
-      height: 46px;
-      background: var(--accent);
-      border: 3px solid white;
+    #joystick-knob {
+      width: 42px;
+      height: 42px;
+      background: var(--easylink-blue);
+      border: 2px solid white;
       border-radius: 50%;
       position: absolute;
-      box-shadow: 0 0 15px rgba(37, 99, 235, 0.8);
+      box-shadow: 0 0 15px rgba(0, 114, 206, 0.8);
       pointer-events: none;
       transition: transform 0.05s linear;
-    }
-
-    .keyboard-hint {
-      font-size: 9px;
-      color: var(--text-muted);
-      text-align: center;
-    }
-
-    /* Veicolo e Cursore */
-    .car-marker {
-      width: 38px;
-      height: 38px;
-      background: #0284c7;
-      border: 3px solid white;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: white;
-      box-shadow: 0 0 20px rgba(2, 132, 199, 0.9);
-      transition: transform 0.15s ease-out;
-    }
-
-    /* Freccia Incrocio Sull'Asfalto */
-    .junction-arrow-marker {
-      width: 50px;
-      height: 50px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      animation: pulseGlow 1.5s infinite alternate;
-    }
-
-    @keyframes pulseGlow {
-      from { transform: scale(0.95); opacity: 0.85; }
-      to { transform: scale(1.15); opacity: 1; }
     }
 
     #toast {
@@ -390,76 +480,100 @@
     }
   </style>
 </head>
-<body>
+<body class="view-3d">
 
-  <!-- Mappa -->
-  <div id="map"></div>
+  <!-- Mappa con Contenitore Prospettico 3D -->
+  <div id="map-viewport">
+    <div id="map"></div>
+  </div>
 
-  <!-- Barra Ricerca -->
-  <div id="search-container">
-    <div class="search-card">
-      <div class="search-row">
-        <i data-lucide="navigation" style="width:18px; height:18px; color:#3b82f6;"></i>
-        <input type="text" id="dest-input" class="search-input" placeholder="Cerca destinazione o tocca la mappa..." autocomplete="off">
-        <button id="btn-clear" onclick="pulisciDestinazione()" style="background:none; border:none; color:var(--text-muted); display:none; cursor:pointer;">
-          <i data-lucide="x" style="width:16px; height:16px;"></i>
-        </button>
+  <!-- Cartello Limite di Velocità (Easy Link Speed Sign) -->
+  <div id="speed-limit-sign">50</div>
+
+  <!-- Selettore Modalità Vista (3D / 2D / Nord) -->
+  <div id="view-mode-selector">
+    <button class="view-btn active" id="btn-view-3d" onclick="impostaVista('3d')" title="Vista 3D Inception Prospettica">3D</button>
+    <button class="view-btn" id="btn-view-2d" onclick="impostaVista('2d')" title="Vista 2D Direzione">2D</button>
+    <button class="view-btn" id="btn-view-north" onclick="impostaVista('north')" title="Vista 2D Nord Fisso">N</button>
+  </div>
+
+  <!-- Barra Ricerca e Selezione Percorso -->
+  <div id="search-panel">
+    <div class="search-box">
+      <i data-lucide="compass" style="width:20px; height:20px; color:var(--easylink-cyan);"></i>
+      <input type="text" id="destination-input" placeholder="Cerca destinazione o tocca la mappa..." autocomplete="off">
+      <button onclick="pulisciRicerca()" id="btn-clear-search" style="background:none; border:none; color:var(--text-muted); display:none; cursor:pointer;">
+        <i data-lucide="x" style="width:16px; height:16px;"></i>
+      </button>
+    </div>
+    <div id="search-results"></div>
+  </div>
+
+  <!-- Top Navigation HUD: Stile Renault Easy Link -->
+  <div id="nav-header-easylink">
+    <div class="nav-main-row">
+      <div class="maneuver-badge-box" id="maneuver-badge">
+        <i data-lucide="arrow-up" style="width:30px; height:30px;"></i>
       </div>
-    </div>
-    <div id="suggestions"></div>
-  </div>
-
-  <!-- Top Turn-by-Turn HUD con Indicatore Auto-Zoom Incrocio -->
-  <div id="nav-hud">
-    <div class="maneuver-icon-container" id="hud-icon">
-      <i data-lucide="arrow-up" style="width:26px; height:26px;"></i>
-    </div>
-    <div class="maneuver-text">
-      <div style="display:flex; align-items:center; gap:8px;">
-        <span class="maneuver-distance" id="hud-dist">-- m</span>
-        <span class="junction-zoom-badge" id="hud-zoom-badge">🔍 Zoom Incrocio</span>
+      <div class="maneuver-content">
+        <div class="maneuver-dist-row">
+          <span class="maneuver-distance-val" id="maneuver-dist-val">-- m</span>
+          <span class="maneuver-stage-tag" id="maneuver-stage-tag">Crociera</span>
+        </div>
+        <div class="maneuver-street-name" id="maneuver-next-street">Procedi dritto</div>
       </div>
-      <div class="maneuver-street" id="hud-street">In attesa del percorso...</div>
+      <button onclick="interrompiGuida()" style="background:transparent; border:none; color:#ef4444; cursor:pointer; padding:6px;">
+        <i data-lucide="x-circle" style="width:24px; height:24px;"></i>
+      </button>
     </div>
-    <button onclick="fermaNavigazione()" class="btn-stop">Esci</button>
+
+    <!-- Barra di avvicinamento progressivo al punto di svolta -->
+    <div class="approach-progress-bar">
+      <div class="approach-progress-fill" id="approach-fill"></div>
+    </div>
+
+    <!-- Lane Guidance (Indicatore corsie stradali) -->
+    <div id="lane-guidance">
+      <span style="font-size:11px; color:var(--text-muted); font-weight:700; margin-right:4px;">CORSIE:</span>
+      <div class="lane-arrow" id="lane-0"><i data-lucide="arrow-up" style="width:16px; height:16px;"></i></div>
+      <div class="lane-arrow active" id="lane-1"><i data-lucide="corner-up-right" style="width:16px; height:16px;"></i></div>
+      <div class="lane-arrow" id="lane-2"><i data-lucide="corner-up-right" style="width:16px; height:16px;"></i></div>
+    </div>
   </div>
 
-  <!-- Joystick per test da fermo -->
-  <div id="joystick-panel">
-    <div class="joystick-title">🕹️ Guida Manuale</div>
-    <div id="joystick-base">
-      <div id="joystick-stick"></div>
-    </div>
-    <div class="keyboard-hint">Trascina o usa tasti W A S D</div>
+  <!-- Pillola Strada Attuale (Bottom Center) -->
+  <div id="current-street-pill">
+    <i data-lucide="map-pin" style="width:14px; height:14px; color:var(--easylink-cyan);"></i>
+    <span id="current-street-text">In attesa di localizzazione...</span>
   </div>
 
-  <!-- Bottom Trip Status -->
-  <div id="bottom-bar">
-    <div class="stat-group">
-      <span class="stat-value" id="stat-time">-- min</span>
-      <span class="stat-label" id="stat-eta">ETA: --:--</span>
+  <!-- Barra Riepilogo Viaggio Inferiore (Easy Link Trip Info) -->
+  <div id="nav-footer-easylink">
+    <div class="footer-stat-box">
+      <div class="footer-stat-val" id="footer-eta">--:--</div>
+      <div class="footer-stat-lbl">Arrivo Previsto</div>
     </div>
-    <div class="stat-group">
-      <span class="stat-value" id="stat-dist">-- km</span>
-      <span class="stat-label">Distanza</span>
+    <div class="footer-stat-box">
+      <div class="footer-stat-val" id="footer-km">-- km</div>
+      <div class="footer-stat-lbl">Distanza</div>
     </div>
-    <button class="btn-start" id="btn-start-nav" onclick="avviaNavigazione()">
+    <div class="footer-stat-box">
+      <div class="footer-stat-val" id="footer-min">-- min</div>
+      <div class="footer-stat-lbl">Durata</div>
+    </div>
+    <button id="btn-start-drive" onclick="avviaGuidaEasyLink()" style="background:var(--easylink-green); color:white; border:none; padding:10px 18px; border-radius:12px; font-weight:800; font-size:14px; cursor:pointer; display:flex; align-items:center; gap:6px;">
       <i data-lucide="play" style="width:16px; height:16px;"></i>
-      <span>Avvia</span>
+      <span>Parti</span>
     </button>
   </div>
 
-  <!-- Controlli Flottanti Mappa -->
-  <div class="map-controls">
-    <button class="fab" onclick="centraSuPosizione()" title="La mia posizione">
-      <i data-lucide="crosshair" style="width:20px; height:20px;"></i>
-    </button>
-    <button class="fab" onclick="toggleJoystick()" id="btn-toggle-joy" title="Mostra/Nascondi Joystick" class="active">
-      <i data-lucide="gamepad-2" style="width:20px; height:20px;"></i>
-    </button>
-    <button class="fab" onclick="toggleAudio()" id="btn-audio" title="Guida vocale">
-      <i data-lucide="volume-2" id="audio-icon" style="width:20px; height:20px;"></i>
-    </button>
+  <!-- Joystick Guida Manuale da Fermo -->
+  <div id="joystick-container">
+    <div style="font-size:10px; font-weight:800; color:var(--easylink-cyan); text-transform:uppercase;">Joystick Guida</div>
+    <div id="joystick-base">
+      <div id="joystick-knob"></div>
+    </div>
+    <div style="font-size:9px; color:var(--text-muted);">Tasti W A S D / Frecce</div>
   </div>
 
   <div id="toast"></div>
@@ -470,220 +584,244 @@
   <script>
     lucide.createIcons();
 
-    // Stato Navigatore
-    let userLocation = { lat: 39.3175, lon: 16.2736 }; // Default Cosenza/Rende se GPS non risponde subito
-    let userHeading = 0; // Gradi bussola
-    let userSpeed = 0; // km/h
+    // Stato del Sistema Easy Link
+    let currentViewMode = '3d'; // '3d', '2d', 'north'
+    let userLocation = { lat: 39.3175, lon: 16.2736 };
+    let userHeading = 0;
+    let userSpeedKmh = 50;
     let destLocation = null;
     let activeRoute = null;
     let isNavigating = false;
-    let voiceEnabled = true;
     let currentStepIndex = 0;
-    let joystickActive = true;
+    let initialStepDistance = 1;
 
-    // Inizializza Mappa con OpenStreetMap standard 100% libera e senza chiavi
-    const map = L.map('map', { zoomControl: false }).setView([userLocation.lat, userLocation.lon], 15);
+    // Inizializza Mappa Leaflet
+    const map = L.map('map', { zoomControl: false }).setView([userLocation.lat, userLocation.lon], 16);
 
+    // Tile OpenStreetMap Ufficiali
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+      attribution: '&copy; OpenStreetMap contributors'
     }).addTo(map);
 
     let routeLayer = null;
     let destMarker = null;
-    let junctionArrowMarker = null; // Freccia 3D / grafica sull'asfalto all'incrocio
+    let junctionArrowMarker = null;
 
-    // Marker Veicolo
-    const carIcon = L.divIcon({
-      className: 'car-marker-wrap',
-      html: `<div class="car-marker" id="car-vehicle-icon">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                <polygon points="12 2 19 21 12 17 5 21 12 2" fill="white"/>
-              </svg>
+    // Marker Vettura Easy Link (Puntatore con fascio di luce)
+    const vehicleIcon = L.divIcon({
+      className: 'vehicle-wrap',
+      html: `<div class="vehicle-marker-box" id="vehicle-icon-wrap">
+              <div class="vehicle-pointer">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                  <polygon points="12 2 20 20 12 16 4 20 12 2" fill="white"/>
+                </svg>
+              </div>
              </div>`,
-      iconSize: [38, 38],
-      iconAnchor: [19, 19]
+      iconSize: [44, 44],
+      iconAnchor: [22, 22]
     });
-    let userMarker = L.marker([userLocation.lat, userLocation.lon], { icon: carIcon }).addTo(map);
+    let userMarker = L.marker([userLocation.lat, userLocation.lon], { icon: vehicleIcon }).addTo(map);
 
-    // 1. Rilevamento GPS Reale
+    // 1. Rilevamento GPS
     if ('geolocation' in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        pos => {
-          userLocation = { lat: pos.coords.latitude, lon: pos.coords.longitude };
-          userMarker.setLatLng([userLocation.lat, userLocation.lon]);
-          map.setView([userLocation.lat, userLocation.lon], 16);
-          showToast("GPS attivo");
-        },
-        err => console.log("GPS default attivo"),
-        { enableHighAccuracy: true }
-      );
+      navigator.geolocation.getCurrentPosition(pos => {
+        userLocation = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+        userMarker.setLatLng([userLocation.lat, userLocation.lon]);
+        centraTelecameraEasyLink();
+        aggiornaNomeStradaAttuale(userLocation);
+      }, null, { enableHighAccuracy: true });
 
-      navigator.geolocation.watchPosition(
-        pos => {
-          // Se stiamo usando il joystick manuale ignoriamo il sensore per non sovrascrivere
-          if (isJoystickDriving) return;
-          userLocation = { lat: pos.coords.latitude, lon: pos.coords.longitude };
-          userMarker.setLatLng([userLocation.lat, userLocation.lon]);
-          if (pos.coords.heading !== null && !isNaN(pos.coords.heading)) {
-            impostaHeading(pos.coords.heading);
-          }
-          if (isNavigating && activeRoute) {
-            aggiornaNavigazioneConAutoZoom();
-          }
-        },
-        err => console.warn(err),
-        { enableHighAccuracy: true, maximumAge: 1000 }
-      );
+      navigator.geolocation.watchPosition(pos => {
+        if (isJoystickDriving) return;
+        userLocation = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+        userMarker.setLatLng([userLocation.lat, userLocation.lon]);
+        if (pos.coords.heading !== null && !isNaN(pos.coords.heading)) {
+          impostaHeading(pos.coords.heading);
+        }
+        if (pos.coords.speed !== null && !isNaN(pos.coords.speed)) {
+          userSpeedKmh = Math.round(pos.coords.speed * 3.6);
+          aggiornaLimiteVelocita(userSpeedKmh);
+        }
+        if (isNavigating) aggiornaGuidaEasyLink();
+        else centraTelecameraEasyLink();
+      }, null, { enableHighAccuracy: true, maximumAge: 1000 });
     }
 
     function impostaHeading(gradi) {
       userHeading = gradi;
-      const el = document.getElementById('car-vehicle-icon');
+      const el = document.getElementById('vehicle-icon-wrap');
       if (el) el.style.transform = `rotate(${gradi}deg)`;
     }
 
-    // 2. Click su Mappa per scegliere destinazione
-    map.on('click', e => {
-      if (isNavigating) return;
-      impostaDestinazione(e.latlng.lat, e.latlng.lng, "Punto selezionato");
-    });
+    // Centra la telecamera con offset verso il basso (lascia il 65% della mappa in avanti)
+    function centraTelecameraEasyLink() {
+      // In modalità 3D e 2D Track-Up, calcoliamo un punto leggermente davanti all'auto
+      if (currentViewMode === '3d' || currentViewMode === '2d') {
+        const rad = (userHeading * Math.PI) / 180;
+        // Offset 100 metri davanti all'auto per visuale da cruscotto
+        const offsetLat = (100 * Math.cos(rad)) / 111320;
+        const offsetLon = (100 * Math.sin(rad)) / (111320 * Math.cos(userLocation.lat * Math.PI / 180));
+        map.panTo([userLocation.lat + offsetLat, userLocation.lon + offsetLon], { animate: true, duration: 0.3 });
+      } else {
+        map.panTo([userLocation.lat, userLocation.lon], { animate: true });
+      }
+    }
 
-    // 3. Ricerca Indirizzi Photon
-    const searchInput = document.getElementById('dest-input');
-    const suggestionsBox = document.getElementById('suggestions');
-    let searchDebounce = null;
+    // Gestione Viste Easy Link (3D / 2D / Nord)
+    function impostaVista(mode) {
+      currentViewMode = mode;
+      document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+      document.body.classList.remove('view-3d');
+
+      if (mode === '3d') {
+        document.body.classList.add('view-3d');
+        document.getElementById('btn-view-3d').classList.add('active');
+        showToast("Vista 3D Inception Prospettica");
+      } else if (mode === '2d') {
+        document.getElementById('btn-view-2d').classList.add('active');
+        showToast("Vista 2D Direzione (Track-up)");
+      } else {
+        document.getElementById('btn-view-north').classList.add('active');
+        showToast("Vista 2D Nord Fisso (North-up)");
+      }
+      centraTelecameraEasyLink();
+    }
+
+    // 2. Ricerca Destinazione
+    const searchInput = document.getElementById('destination-input');
+    const resultsBox = document.getElementById('search-results');
+    let debounceSearch = null;
 
     searchInput.addEventListener('input', e => {
       const q = e.target.value.trim();
-      document.getElementById('btn-clear').style.display = q ? 'block' : 'none';
-      clearTimeout(searchDebounce);
+      document.getElementById('btn-clear-search').style.display = q ? 'block' : 'none';
+      clearTimeout(debounceSearch);
+      if (q.length < 3) { resultsBox.style.display = 'none'; return; }
 
-      if (q.length < 3) {
-        suggestionsBox.style.display = 'none';
-        return;
-      }
-
-      searchDebounce = setTimeout(async () => {
-        let url = `https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=5&lat=${userLocation.lat}&lon=${userLocation.lon}`;
+      debounceSearch = setTimeout(async () => {
+        const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=5&lat=${userLocation.lat}&lon=${userLocation.lon}`;
         try {
           const res = await fetch(url);
           const data = await res.json();
-          renderSuggerimenti(data.features || []);
-        } catch (err) { console.error(err); }
+          renderRisultati(data.features || []);
+        } catch(err) { console.error(err); }
       }, 300);
     });
 
-    function renderSuggerimenti(features) {
-      if (!features.length) { suggestionsBox.style.display = 'none'; return; }
-      suggestionsBox.innerHTML = '';
+    function renderRisultati(features) {
+      if (!features.length) { resultsBox.style.display = 'none'; return; }
+      resultsBox.innerHTML = '';
       features.forEach(f => {
         const p = f.properties;
         const [lon, lat] = f.geometry.coordinates;
-        const item = document.createElement('div');
-        item.className = 'suggestion-item';
-        const name = p.name || p.street || 'Luogo';
-        const details = [p.city, p.county, p.country].filter(Boolean).join(', ');
-        item.innerHTML = `<span class="suggestion-title">${name}</span><span class="suggestion-sub">${details}</span>`;
-        item.onclick = () => {
-          searchInput.value = name;
-          suggestionsBox.style.display = 'none';
-          impostaDestinazione(lat, lon, name);
+        const div = document.createElement('div');
+        div.className = 'result-item';
+        div.innerHTML = `<span class="result-title">${p.name || p.street || 'Destinazione'}</span>
+                         <span class="result-sub">${[p.city, p.county, p.country].filter(Boolean).join(', ')}</span>`;
+        div.onclick = () => {
+          searchInput.value = p.name || p.street;
+          resultsBox.style.display = 'none';
+          impostaDestinazione(lat, lon, p.name || p.street);
         };
-        suggestionsBox.appendChild(item);
+        resultsBox.appendChild(div);
       });
-      suggestionsBox.style.display = 'flex';
+      resultsBox.style.display = 'flex';
     }
 
-    function pulisciDestinazione() {
+    map.on('click', e => {
+      if (isNavigating) return;
+      impostaDestinazione(e.latlng.lat, e.latlng.lng, "Destinazione selezionata");
+    });
+
+    function pulisciRicerca() {
       searchInput.value = '';
-      document.getElementById('btn-clear').style.display = 'none';
-      suggestionsBox.style.display = 'none';
+      document.getElementById('btn-clear-search').style.display = 'none';
+      resultsBox.style.display = 'none';
       if (destMarker) map.removeLayer(destMarker);
       if (routeLayer) map.removeLayer(routeLayer);
-      rimuoviFrecciaIncrocio();
-      document.getElementById('bottom-bar').style.display = 'none';
-      destLocation = null;
+      document.getElementById('nav-footer-easylink').style.display = 'none';
       activeRoute = null;
     }
 
-    // 4. Calcolo Rotta OSRM
+    // 3. Calcolo Tracciato OSRM
     async function impostaDestinazione(lat, lon, label) {
       destLocation = { lat, lon, name: label };
       if (destMarker) map.removeLayer(destMarker);
       destMarker = L.marker([lat, lon]).addTo(map).bindPopup(label).openPopup();
-      await calcolaRotta(userLocation, destLocation);
+      await calcolaPercorsoEasyLink();
     }
 
-    async function calcolaRotta(start, end) {
-      showToast("Calcolo percorso in corso...");
-      const url = `https://router.project-osrm.org/route/v1/driving/${start.lon},${start.lat};${end.lon},${end.lat}?overview=full&geometries=geojson&steps=true`;
+    async function calcolaPercorsoEasyLink() {
+      showToast("Calcolo itinerario in corso...");
+      const url = `https://router.project-osrm.org/route/v1/driving/${userLocation.lon},${userLocation.lat};${destLocation.lon},${destLocation.lat}?overview=full&geometries=geojson&steps=true`;
 
       try {
         const res = await fetch(url);
         const data = await res.json();
         if (!data.routes || !data.routes.length) {
-          showToast("Nessuna strada trovata.");
+          showToast("Nessun percorso trovato.");
           return;
         }
 
         activeRoute = data.routes[0];
 
         if (routeLayer) map.removeLayer(routeLayer);
+        // Traccia blu elettrico stile Renault Easy Link con trasparenza
         routeLayer = L.geoJSON(activeRoute.geometry, {
-          style: { color: '#2563eb', weight: 6, opacity: 0.9, lineJoin: 'round' }
+          style: { color: '#0072ce', weight: 7, opacity: 0.9, lineJoin: 'round' }
         }).addTo(map);
 
-        map.fitBounds(routeLayer.getBounds(), { padding: [50, 50] });
+        map.fitBounds(routeLayer.getBounds(), { padding: [60, 60] });
 
+        // Aggiorna Footer Easy Link
         const km = (activeRoute.distance / 1000).toFixed(1);
         const min = Math.round(activeRoute.duration / 60);
-        document.getElementById('stat-dist').innerText = `${km} km`;
-        document.getElementById('stat-time').innerText = `${min} min`;
-        
+        document.getElementById('footer-km').innerText = `${km} km`;
+        document.getElementById('footer-min').innerText = `${min} min`;
+
         const eta = new Date();
         eta.setSeconds(eta.getSeconds() + activeRoute.duration);
-        document.getElementById('stat-eta').innerText = `ETA: ${eta.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+        document.getElementById('footer-eta').innerText = eta.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-        document.getElementById('bottom-bar').style.display = 'flex';
+        document.getElementById('nav-footer-easylink').style.display = 'flex';
       } catch (err) {
-        showToast("Errore calcolo rotta.");
+        showToast("Errore di rete.");
       }
     }
 
-    // 5. Avvio Navigazione Turn-by-Turn
-    function avviaNavigazione() {
+    // 4. Modalità Navigazione Renault Easy Link
+    function avviaGuidaEasyLink() {
       if (!activeRoute) return;
       isNavigating = true;
       currentStepIndex = 0;
 
-      document.getElementById('search-container').style.display = 'none';
-      document.getElementById('nav-hud').style.display = 'flex';
-      document.getElementById('btn-start-nav').style.display = 'none';
+      document.getElementById('search-panel').style.display = 'none';
+      document.getElementById('nav-header-easylink').style.display = 'flex';
+      document.getElementById('btn-start-drive').style.display = 'none';
 
-      map.setZoom(16);
-      map.panTo([userLocation.lat, userLocation.lon]);
+      const step = activeRoute.legs[0].steps[0];
+      initialStepDistance = step.distance || 300;
 
-      aggiornaNavigazioneConAutoZoom();
-      parlaManovra();
+      aggiornaGuidaEasyLink();
+      parlaEasyLink();
     }
 
-    function fermaNavigazione() {
+    function interrompiGuida() {
       isNavigating = false;
-      document.getElementById('search-container').style.display = 'flex';
-      document.getElementById('nav-hud').style.display = 'none';
-      document.getElementById('btn-start-nav').style.display = 'flex';
-      rimuoviFrecciaIncrocio();
+      document.getElementById('search-panel').style.display = 'flex';
+      document.getElementById('nav-header-easylink').style.display = 'none';
+      document.getElementById('btn-start-drive').style.display = 'flex';
+      rimuoviFrecciaAsfalto();
       if (routeLayer) map.fitBounds(routeLayer.getBounds(), { padding: [50, 50] });
     }
 
-    // 6. AUTO-ZOOM DINAMICO ALL'INCROCIO + FRECCIA SULL'ASFALTO
-    function aggiornaNavigazioneConAutoZoom() {
+    // 5. GESTIONE MAPPA A 3 FASI SECONDO IL MANUALE RENAULT EASY LINK
+    function aggiornaGuidaEasyLink() {
       const steps = activeRoute.legs[0].steps;
       if (currentStepIndex >= steps.length) {
-        showToast("Destinazione raggiunta!");
-        parla("Sei arrivato a destinazione.");
-        fermaNavigazione();
+        showToast("Sei giunto a destinazione");
+        interrompiGuida();
         return;
       }
 
@@ -691,262 +829,246 @@
       const stepLoc = step.maneuver.location; // [lon, lat]
       const dist = distanzaMetri(userLocation.lat, userLocation.lon, stepLoc[1], stepLoc[0]);
 
-      // A. Se siamo a meno di 25 metri, passa alla manovra successiva
-      if (dist < 25 && currentStepIndex < steps.length - 1) {
+      // Avanzamento manovra se entro 20 metri dall'incrocio
+      if (dist < 20 && currentStepIndex < steps.length - 1) {
         currentStepIndex++;
-        aggiornaNavigazioneConAutoZoom();
-        parlaManovra();
+        const nextStep = steps[currentStepIndex];
+        initialStepDistance = nextStep.distance || 200;
+        aggiornaGuidaEasyLink();
+        parlaEasyLink();
         return;
       }
 
-      // B. Aggiorna HUD
-      document.getElementById('hud-dist').innerText = dist > 1000 ? `Tra ${(dist/1000).toFixed(1)} km` : `Tra ${Math.round(dist)} m`;
-      document.getElementById('hud-street').innerText = step.name || "Continua sul percorso";
+      // Testo Distanza
+      document.getElementById('maneuver-dist-val').innerText = dist > 1000 ? `${(dist/1000).toFixed(1)} km` : `${Math.round(dist)} m`;
+      document.getElementById('maneuver-next-street').innerText = step.name || "Continua sul percorso";
 
-      // C. LOGICA AUTO-ZOOM DINAMICO
-      // Se siamo vicini all'incrocio (< 150m), la mappa fa lo zoom ravvicinato per vedere l'incrocio nei dettagli!
-      const zoomBadge = document.getElementById('hud-zoom-badge');
-      if (dist < 80) {
-        // Molto vicino: zoom massimo sull'incrocio (zoom 18)
-        if (map.getZoom() !== 18) map.setZoom(18, { animate: true });
-        zoomBadge.style.display = 'inline-block';
-      } else if (dist < 180) {
-        // Avvicinamento all'incrocio (zoom 17)
+      // Barra di avanzamento progressiva
+      const progressPercent = Math.max(0, Math.min(100, 100 - (dist / Math.max(initialStepDistance, 100)) * 100));
+      document.getElementById('approach-fill').style.width = `${progressPercent}%`;
+
+      const stageTag = document.getElementById('maneuver-stage-tag');
+      const laneBox = document.getElementById('lane-guidance');
+
+      // GESTIONE AUTOMATICA ZOOM E PROSPETTIVA A 3 FASI (Manuale Renault)
+      if (dist > 350) {
+        // --- STAGE 1: CROCIERA / PREPARAZIONE ---
+        // Auto-zoom basato su velocità veicolo:
+        // In autostrada ad alta velocità (es. > 80 km/h) zoom 15 per visuale lunga.
+        // A velocità urbana (es. < 50 km/h) zoom 16.
+        const targetZoom = userSpeedKmh > 70 ? 15 : 16;
+        if (map.getZoom() !== targetZoom) map.setZoom(targetZoom, { animate: true });
+
+        stageTag.innerText = "Crociera";
+        stageTag.style.color = "var(--easylink-cyan)";
+        laneBox.style.display = "none";
+        rimuoviFrecciaAsfalto();
+
+      } else if (dist <= 350 && dist > 100) {
+        // --- STAGE 2: ALLERTA INCROCIO ---
+        // La mappa si avvicina progressivamente (Zoom 17)
         if (map.getZoom() !== 17) map.setZoom(17, { animate: true });
-        zoomBadge.style.display = 'inline-block';
+
+        stageTag.innerText = "Allerta Svolta";
+        stageTag.style.color = "#f59e0b";
+        laneBox.style.display = "flex"; // Mostra corsie consigliate
+        disegnaFrecciaAsfalto(stepLoc[1], stepLoc[0], step.maneuver.modifier);
+
       } else {
-        // Sul rettilineo: zoom standard per vedere la strada avanti (zoom 15 o 16)
-        if (map.getZoom() > 16) map.setZoom(16, { animate: true });
-        zoomBadge.style.display = 'none';
+        // --- STAGE 3: MANOVRA IMMEDIATA ---
+        // Auto-zoom ravvicinato (Zoom 18) sull'incrocio, per vedere esattamente l'uscita o la curva
+        if (map.getZoom() !== 18) map.setZoom(18, { animate: true });
+
+        stageTag.innerText = "Manovra";
+        stageTag.style.color = "var(--easylink-green)";
+        laneBox.style.display = "flex";
+        disegnaFrecciaAsfalto(stepLoc[1], stepLoc[0], step.maneuver.modifier);
       }
 
-      map.panTo([userLocation.lat, userLocation.lon]);
-
-      // D. FRECCIA SULL'ASFALTO ALL'INCROCIO
-      // Se siamo entro 250m dall'incrocio, disegna la freccia luminosa orientata esattamente sul punto di svolta
-      if (dist < 250) {
-        posizionaFrecciaIncrocio(stepLoc[1], stepLoc[0], step.maneuver.modifier);
-      } else {
-        rimuoviFrecciaIncrocio();
-      }
-
-      aggiornaIconaManovra(step);
+      centraTelecameraEasyLink();
+      aggiornaIconaManovraEasyLink(step);
+      aggiornaNomeStradaAttuale(userLocation);
     }
 
-    // Disegna la freccia luminosa sulla strada nel punto esatto dell'incrocio
-    function posizionaFrecciaIncrocio(lat, lon, modifier) {
-      if (!junctionArrowMarker) {
-        let rotationDeg = 0;
-        if (modifier && modifier.includes('right')) rotationDeg = 90;
-        else if (modifier && modifier.includes('left')) rotationDeg = -90;
+    // Disegna la freccia luminosa dinamica sull'asfalto
+    function disegnaFrecciaAsfalto(lat, lon, modifier) {
+      let deg = 0;
+      if (modifier && modifier.includes('right')) deg = 90;
+      else if (modifier && modifier.includes('left')) deg = -90;
 
-        const arrowHtml = `
-          <div class="junction-arrow-marker" style="transform: rotate(${rotationDeg}deg);">
-            <svg width="46" height="46" viewBox="0 0 24 24" fill="none">
-              <path d="M12 3L12 21M12 3L5 10M12 3L19 10" stroke="#10b981" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </div>
-        `;
-        const icon = L.divIcon({
-          className: 'junction-arrow-wrap',
-          html: arrowHtml,
-          iconSize: [50, 50],
-          iconAnchor: [25, 25]
-        });
+      const html = `
+        <div class="easylink-junction-arrow" style="transform: rotate(${deg}deg);">
+          <svg width="54" height="54" viewBox="0 0 24 24" fill="none">
+            <path d="M12 3L12 21M12 3L5 10M12 3L19 10" stroke="#10b981" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+      `;
+      const icon = L.divIcon({ className: 'arrow-wrap', html, iconSize: [60,60], iconAnchor: [30,30] });
+
+      if (!junctionArrowMarker) {
         junctionArrowMarker = L.marker([lat, lon], { icon }).addTo(map);
       } else {
         junctionArrowMarker.setLatLng([lat, lon]);
       }
     }
 
-    function rimuoviFrecciaIncrocio() {
+    function rimuoviFrecciaAsfalto() {
       if (junctionArrowMarker) {
         map.removeLayer(junctionArrowMarker);
         junctionArrowMarker = null;
       }
     }
 
-    function aggiornaIconaManovra(step) {
-      const modifier = step.maneuver.modifier || '';
+    function aggiornaIconaManovraEasyLink(step) {
+      const mod = step.maneuver.modifier || '';
       const type = step.maneuver.type;
-      let iconName = 'arrow-up';
-      if (modifier.includes('right')) iconName = 'corner-up-right';
-      else if (modifier.includes('left')) iconName = 'corner-up-left';
-      else if (type === 'roundabout') iconName = 'rotate-cw';
-      else if (type === 'arrive') iconName = 'flag';
+      let icon = 'arrow-up';
+      if (mod.includes('right')) icon = 'corner-up-right';
+      else if (mod.includes('left')) icon = 'corner-up-left';
+      else if (type === 'roundabout') icon = 'rotate-cw';
+      else if (type === 'arrive') icon = 'flag';
 
-      document.getElementById('hud-icon').innerHTML = `<i data-lucide="${iconName}" style="width:26px; height:26px;"></i>`;
+      document.getElementById('maneuver-badge').innerHTML = `<i data-lucide="${icon}" style="width:30px; height:30px;"></i>`;
       lucide.createIcons();
     }
 
-    // Formula Haversine (distanza in metri)
-    function distanzaMetri(lat1, lon1, lat2, lon2) {
-      const R = 6371e3;
-      const φ1 = lat1 * Math.PI / 180;
-      const φ2 = lat2 * Math.PI / 180;
-      const Δφ = (lat2 - lat1) * Math.PI / 180;
-      const Δλ = (lon2 - lon1) * Math.PI / 180;
-      const a = Math.sin(Δφ/2)**2 + Math.cos(φ1)*Math.cos(φ2)*Math.sin(Δλ/2)**2;
-      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    }
-
-    // Guida Vocale
-    function parla(testo) {
-      if (!voiceEnabled || !('speechSynthesis' in window)) return;
-      window.speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(testo);
-      u.lang = 'it-IT';
-      window.speechSynthesis.speak(u);
-    }
-
-    function parlaManovra() {
+    function parlaEasyLink() {
       const step = activeRoute.legs[0].steps[currentStepIndex];
       let testo = "";
       const mod = step.maneuver.modifier;
       const via = step.name ? `in ${step.name}` : "";
-      if (mod && mod.includes('right')) testo = `Gira a destra ${via}`;
-      else if (mod && mod.includes('left')) testo = `Gira a sinistra ${via}`;
-      else if (step.maneuver.type === 'roundabout') testo = `Entra nella rotonda ${via}`;
+      if (mod && mod.includes('right')) testo = `In 300 metri, gira a destra ${via}`;
+      else if (mod && mod.includes('left')) testo = `In 300 metri, gira a sinistra ${via}`;
+      else if (step.maneuver.type === 'roundabout') testo = `Alla rotonda prendi l'uscita ${via}`;
       else if (step.maneuver.type === 'arrive') testo = "Sei arrivato a destinazione";
-      else testo = `Procedi dritto ${via}`;
-      parla(testo);
+      else testo = `Continua dritto ${via}`;
+
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const u = new SpeechSynthesisUtterance(testo);
+        u.lang = 'it-IT';
+        window.speechSynthesis.speak(u);
+      }
     }
 
-    // 7. JOYSTICK VIRTUALE PER GUIDARE DA FERMO
+    function aggiornaLimiteVelocita(speed) {
+      const sign = document.getElementById('speed-limit-sign');
+      if (speed > 100) sign.innerText = "130";
+      else if (speed > 60) sign.innerText = "90";
+      else sign.innerText = "50";
+    }
+
+    // Geocodifica inversa per mostrare la strada attuale in basso
+    let lastStreetCheck = 0;
+    async function aggiornaNomeStradaAttuale(loc) {
+      const now = Date.now();
+      if (now - lastStreetCheck < 8000) return; // rate limit 8s
+      lastStreetCheck = now;
+      try {
+        const res = await fetch(`https://photon.komoot.io/reverse?lon=${loc.lon}&lat=${loc.lat}`);
+        const data = await res.json();
+        if (data.features && data.features.length) {
+          const p = data.features[0].properties;
+          const street = p.street || p.name || p.city || "Strada senza nome";
+          document.getElementById('current-street-text').innerText = street;
+        }
+      } catch(e) {}
+    }
+
+    function distanzaMetri(lat1, lon1, lat2, lon2) {
+      const R = 6371e3;
+      const φ1 = lat1 * Math.PI / 180, φ2 = lat2 * Math.PI / 180;
+      const Δφ = (lat2 - lat1) * Math.PI / 180, Δλ = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(Δφ/2)**2 + Math.cos(φ1)*Math.cos(φ2)*Math.sin(Δλ/2)**2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    }
+
+    // 6. JOYSTICK VIRTUALE PER PROVARE IL SISTEMA
     const joyBase = document.getElementById('joystick-base');
-    const joyStick = document.getElementById('joystick-stick');
+    const joyKnob = document.getElementById('joystick-knob');
     let isDraggingJoy = false;
     let isJoystickDriving = false;
-    let joyDeltaX = 0;
-    let joyDeltaY = 0;
-    let joyLoopId = null;
+    let joyX = 0, joyY = 0;
+    let joyLoop = null;
 
-    function handleJoyStart(e) {
+    function joyStart(e) {
       isDraggingJoy = true;
       isJoystickDriving = true;
-      updateJoyPos(e);
-      if (!joyLoopId) joyLoopId = requestAnimationFrame(joyUpdateLoop);
+      joyMove(e);
+      if (!joyLoop) joyLoop = requestAnimationFrame(joyUpdate);
     }
 
-    function handleJoyMove(e) {
+    function joyMove(e) {
       if (!isDraggingJoy) return;
-      updateJoyPos(e);
-    }
-
-    function handleJoyEnd() {
-      isDraggingJoy = false;
-      joyDeltaX = 0;
-      joyDeltaY = 0;
-      joyStick.style.transform = `translate(0px, 0px)`;
-      if (joyLoopId) {
-        cancelAnimationFrame(joyLoopId);
-        joyLoopId = null;
-      }
-    }
-
-    function updateJoyPos(e) {
       const rect = joyBase.getBoundingClientRect();
-      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-      const maxRadius = rect.width / 2 - 10;
+      const cx = e.touches ? e.touches[0].clientX : e.clientX;
+      const cy = e.touches ? e.touches[0].clientY : e.clientY;
+      const maxR = rect.width / 2 - 8;
 
-      let dx = clientX - (rect.left + rect.width / 2);
-      let dy = clientY - (rect.top + rect.height / 2);
+      let dx = cx - (rect.left + rect.width / 2);
+      let dy = cy - (rect.top + rect.height / 2);
+      const d = Math.hypot(dx, dy);
+      if (d > maxR) { dx = (dx/d)*maxR; dy = (dy/d)*maxR; }
 
-      const distance = Math.hypot(dx, dy);
-      if (distance > maxRadius) {
-        dx = (dx / distance) * maxRadius;
-        dy = (dy / distance) * maxRadius;
-      }
-
-      joyDeltaX = dx / maxRadius; // da -1 a +1
-      joyDeltaY = dy / maxRadius; // da -1 a +1
-
-      joyStick.style.transform = `translate(${dx}px, ${dy}px)`;
+      joyX = dx / maxR;
+      joyY = dy / maxR;
+      joyKnob.style.transform = `translate(${dx}px, ${dy}px)`;
     }
 
-    joyBase.addEventListener('mousedown', handleJoyStart);
-    window.addEventListener('mousemove', handleJoyMove);
-    window.addEventListener('mouseup', handleJoyEnd);
+    function joyEnd() {
+      isDraggingJoy = false;
+      joyX = 0; joyY = 0;
+      joyKnob.style.transform = `translate(0, 0)`;
+      if (joyLoop) { cancelAnimationFrame(joyLoop); joyLoop = null; }
+    }
 
-    joyBase.addEventListener('touchstart', handleJoyStart, { passive: false });
-    window.addEventListener('touchmove', handleJoyMove, { passive: false });
-    window.addEventListener('touchend', handleJoyEnd);
+    joyBase.addEventListener('mousedown', joyStart);
+    window.addEventListener('mousemove', joyMove);
+    window.addEventListener('mouseup', joyEnd);
+    joyBase.addEventListener('touchstart', joyStart, { passive: false });
+    window.addEventListener('touchmove', joyMove, { passive: false });
+    window.addEventListener('touchend', joyEnd);
 
-    // Supporto tastiera (W A S D o Frecce)
     const keys = {};
     window.addEventListener('keydown', e => {
       keys[e.key.toLowerCase()] = true;
       if (['w','a','s','d','arrowup','arrowleft','arrowdown','arrowright'].includes(e.key.toLowerCase())) {
         isJoystickDriving = true;
-        if (!joyLoopId) joyLoopId = requestAnimationFrame(joyUpdateLoop);
+        if (!joyLoop) joyLoop = requestAnimationFrame(joyUpdate);
       }
     });
-    window.addEventListener('keyup', e => {
-      keys[e.key.toLowerCase()] = false;
-    });
+    window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
 
-    // Ciclo continuo di guida con Joystick / Tastiera
-    function joyUpdateLoop() {
-      let vx = joyDeltaX;
-      let vy = joyDeltaY;
-
-      // Tastiera override
+    function joyUpdate() {
+      let vx = joyX, vy = joyY;
       if (keys['w'] || keys['arrowup']) vy = -1;
       if (keys['s'] || keys['arrowdown']) vy = 1;
       if (keys['a'] || keys['arrowleft']) vx = -1;
       if (keys['d'] || keys['arrowright']) vx = 1;
 
       if (Math.abs(vx) > 0.05 || Math.abs(vy) > 0.05) {
-        // Sterzata
-        userHeading += vx * 3.5;
+        userHeading += vx * 3.8;
         impostaHeading(userHeading);
 
-        // Avanzamento vettura lungo la direzione dell'heading
-        const speedKmh = Math.abs(vy) * 60; // 0-60 km/h
-        const speedMetersPerFrame = (speedKmh / 3.6) * 0.016 * -Math.sign(vy);
+        userSpeedKmh = Math.round(Math.abs(vy) * 75);
+        aggiornaLimiteVelocita(userSpeedKmh);
 
+        const speedMps = (userSpeedKmh / 3.6) * 0.016 * -Math.sign(vy);
         const rad = (userHeading * Math.PI) / 180;
-        const deltaLat = (speedMetersPerFrame * Math.cos(rad)) / 111320;
-        const deltaLon = (speedMetersPerFrame * Math.sin(rad)) / (111320 * Math.cos((userLocation.lat * Math.PI) / 180));
+        const dLat = (speedMps * Math.cos(rad)) / 111320;
+        const dLon = (speedMps * Math.sin(rad)) / (111320 * Math.cos(userLocation.lat * Math.PI / 180));
 
-        userLocation.lat += deltaLat;
-        userLocation.lon += deltaLon;
-
+        userLocation.lat += dLat;
+        userLocation.lon += dLon;
         userMarker.setLatLng([userLocation.lat, userLocation.lon]);
 
-        if (isNavigating && activeRoute) {
-          aggiornaNavigazioneConAutoZoom();
-        } else {
-          map.panTo([userLocation.lat, userLocation.lon]);
-        }
+        if (isNavigating) aggiornaGuidaEasyLink();
+        else centraTelecameraEasyLink();
       }
 
       if (isDraggingJoy || Object.values(keys).some(k => k)) {
-        joyLoopId = requestAnimationFrame(joyUpdateLoop);
-      } else {
-        joyLoopId = null;
-      }
-    }
-
-    function toggleJoystick() {
-      const panel = document.getElementById('joystick-panel');
-      const btn = document.getElementById('btn-toggle-joy');
-      joystickActive = !joystickActive;
-      panel.style.display = joystickActive ? 'flex' : 'none';
-      btn.classList.toggle('active', joystickActive);
-    }
-
-    function toggleAudio() {
-      voiceEnabled = !voiceEnabled;
-      const icon = document.getElementById('audio-icon');
-      icon.setAttribute('data-lucide', voiceEnabled ? 'volume-2' : 'volume-x');
-      lucide.createIcons();
-      showToast(voiceEnabled ? "Guida vocale attiva" : "Guida vocale disattivata");
-    }
-
-    function centraSuPosizione() {
-      map.setView([userLocation.lat, userLocation.lon], 16, { animate: true });
+        joyLoop = requestAnimationFrame(joyUpdate);
+      } else { joyLoop = null; }
     }
 
     function showToast(msg) {
