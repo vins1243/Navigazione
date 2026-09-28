@@ -762,36 +762,46 @@
       userMarker.setRotation(gradi);
     }
 
-    // CALCOLO DINAMICO CONTINUO: più sei vicino (zoom alto) più è in 3D "da dietro",
-    // più sei lontano (zoom basso) più la mappa si appiattisce in 2D dall'alto.
-    function getPitchForZoom(zoom) {
-      if (zoom <= 12.5) return 0;   // Lontano: 100% 2D dall'alto
-      if (zoom >= 18) return 68;     // Molto vicino: 3D ripido immersivo "da dietro l'auto"
-      // Interpolazione graduale e fluida tra 12.5 e 18
-      const ratio = (zoom - 12.5) / (18 - 12.5);
-      return Math.round(ratio * 68);
-    }
-
+    // TELECAMERA 3D AUTOMOTIVE: segue l'auto con Pitch reale a 60°, Bearing e offset in avanti
     function aggiornaTelecamera3D(targetZoom = null) {
-      const z = targetZoom || map.getZoom();
-      const targetPitch = getPitchForZoom(z);
+      const currentZoom = targetZoom || map.getZoom();
+      let targetPitch = 60;
+      let targetBearing = userHeading;
+
+      if (currentViewMode === '2d') {
+        targetPitch = 0; // Piana dall'alto
+        targetBearing = userHeading;
+      } else if (currentViewMode === 'north') {
+        targetPitch = 0;
+        targetBearing = 0; // Nord fisso
+      }
 
       map.easeTo({
         center: [userLocation.lon, userLocation.lat],
         pitch: targetPitch,
-        bearing: userHeading,
-        zoom: z,
-        duration: 250
+        bearing: targetBearing,
+        zoom: currentZoom,
+        duration: 300
       });
     }
 
-    // Se l'utente zooma manualmente (con pinch o rotella), adatta l'inclinazione 2D/3D in tempo reale
-    map.on('zoom', () => {
-      if (isNavigating || isJoystickDriving) {
-        const p = getPitchForZoom(map.getZoom());
-        map.setPitch(p);
+    // Selettore Viste Easy Link
+    function impostaVista(mode) {
+      currentViewMode = mode;
+      document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+
+      if (mode === '3d') {
+        document.getElementById('btn-view-3d').classList.add('active');
+        showToast("Visuale 3D WebGL con Edifici Estrusi");
+      } else if (mode === '2d') {
+        document.getElementById('btn-view-2d').classList.add('active');
+        showToast("Visuale 2D Direzione (Track-up)");
+      } else {
+        document.getElementById('btn-view-north').classList.add('active');
+        showToast("Visuale 2D Nord Fisso");
       }
-    });
+      aggiornaTelecamera3D();
+    }
 
     // 3. RICERCA DESTINAZIONE
     const searchInput = document.getElementById('destination-input');
@@ -1134,11 +1144,6 @@
       if (isDraggingJoy || Object.values(keys).some(k => k)) {
         joyLoop = requestAnimationFrame(joyUpdate);
       } else { joyLoop = null; }
-    }
-
-    function ricentraDietroAuto() {
-      aggiornaTelecamera3D();
-      showToast("Visuale centrata dietro all'auto");
     }
 
     function showToast(msg) {
