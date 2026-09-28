@@ -14,8 +14,7 @@
   <link rel="apple-touch-icon" sizes="192x192" href="icon-192.png">
   <link rel="apple-touch-icon" sizes="512x512" href="icon-512.png">
   <link rel="manifest" href="manifest.json">
-
-  <title>AuraRoute — Navigatore Automotive 3D</title>
+  <title>AuraRoute — Navigatore Automotive 3D WebGL</title>
   
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -57,6 +56,7 @@
       position: relative;
     }
 
+    /* Contenitore Mappa WebGL a Tutto Schermo */
     #map {
       width: 100%;
       height: 100%;
@@ -66,7 +66,7 @@
       background: #e2e8f0;
     }
 
-    /* Top Navigation HUD (Renault Easy Link Style) */
+    /* Top Navigation HUD (Stile Renault Easy Link Automotive) */
     #nav-header-easylink {
       position: absolute;
       top: max(16px, env(safe-area-inset-top));
@@ -200,7 +200,7 @@
     /* Cartello Limite Velocità */
     #speed-limit-sign {
       position: absolute;
-      top: max(100px, calc(env(safe-area-inset-top) + 80px));
+      top: 100px;
       left: 18px;
       z-index: 450;
       width: 52px;
@@ -221,7 +221,7 @@
     /* Pillola Strada Attuale (Bottom Center) */
     #current-street-pill {
       position: absolute;
-      bottom: max(96px, calc(env(safe-area-inset-bottom) + 80px));
+      bottom: 96px;
       left: 50%;
       transform: translateX(-50%);
       z-index: 450;
@@ -244,7 +244,7 @@
       text-overflow: ellipsis;
     }
 
-    /* Footer Info Viaggio */
+    /* Barra Riepilogo Viaggio */
     #nav-footer-easylink {
       position: absolute;
       bottom: max(20px, env(safe-area-inset-bottom));
@@ -266,7 +266,41 @@
     .footer-stat-val { font-size: 18px; font-weight: 800; color: white; }
     .footer-stat-lbl { font-size: 10px; color: var(--text-muted); text-transform: uppercase; font-weight: 700; }
 
-    /* Barra Ricerca */
+    /* Selettore Viste (3D / 2D / N) */
+    #view-mode-selector {
+      position: absolute;
+      top: 100px;
+      right: 18px;
+      z-index: 450;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .view-btn {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: var(--easylink-card);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--easylink-border);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 800;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.35);
+      transition: all 0.2s;
+    }
+    .view-btn.active {
+      background: var(--easylink-blue);
+      border-color: var(--easylink-cyan);
+      box-shadow: 0 0 15px rgba(0, 114, 206, 0.6);
+    }
+
+    /* Barra Ricerca Iniziale */
     #search-panel {
       position: absolute;
       top: max(16px, env(safe-area-inset-top));
@@ -327,35 +361,7 @@
     .result-title { font-weight: 700; color: white; font-size: 14px; }
     .result-sub { font-size: 12px; color: var(--text-muted); }
 
-    /* Pulsanti Rapidi Mappa (Destra) */
-    .map-controls-right {
-      position: absolute;
-      right: 18px;
-      bottom: max(100px, calc(env(safe-area-inset-bottom) + 80px));
-      z-index: 450;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-
-    .control-btn {
-      width: 46px;
-      height: 46px;
-      border-radius: 14px;
-      background: var(--easylink-card);
-      backdrop-filter: blur(10px);
-      border: 1px solid var(--easylink-border);
-      color: white;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.35);
-      transition: all 0.2s;
-    }
-    .control-btn:hover { background: rgba(255, 255, 255, 0.1); }
-
-    /* Modello Veicolo 3D */
+    /* Modello Veicolo 3D Realistico con Fascio Fari & Ombra sul Terreno */
     .vehicle-3d-model {
       position: relative;
       width: 48px;
@@ -364,6 +370,7 @@
       pointer-events: none;
     }
 
+    /* Fascio Luminoso Fari Proiettato sulla Carreggiata */
     .headlights-beam {
       position: absolute;
       top: -45px;
@@ -378,6 +385,7 @@
       pointer-events: none;
     }
 
+    /* Ombra Veicolo sul Terreno */
     .car-ground-shadow {
       position: absolute;
       width: 38px;
@@ -389,6 +397,7 @@
       filter: blur(4px);
     }
 
+    /* Sagoma 3D dell'Auto con Riflessi e Gradiente di Carrozzeria */
     .car-chassis {
       position: absolute;
       width: 32px;
@@ -405,6 +414,7 @@
       padding-top: 7px;
     }
 
+    /* Parabrezza Vettura */
     .car-windshield {
       width: 22px;
       height: 12px;
@@ -424,6 +434,7 @@
       transform: skewX(-20deg);
     }
 
+    /* Tettuccio */
     .car-roof {
       width: 18px;
       height: 10px;
@@ -432,9 +443,53 @@
       border-radius: 2px;
     }
 
+    /* Joystick Virtuale (In basso a sinistra) */
+    #joystick-container {
+      position: absolute;
+      bottom: max(20px, env(safe-area-inset-bottom));
+      left: 20px;
+      z-index: 600;
+      background: rgba(15, 23, 42, 0.9);
+      backdrop-filter: blur(14px);
+      border: 1px solid var(--easylink-border);
+      padding: 12px;
+      border-radius: 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    }
+
+    #joystick-base {
+      width: 100px;
+      height: 100px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 2px solid rgba(255, 255, 255, 0.15);
+      border-radius: 50%;
+      position: relative;
+      touch-action: none;
+      cursor: grab;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #joystick-knob {
+      width: 42px;
+      height: 42px;
+      background: var(--easylink-blue);
+      border: 2px solid white;
+      border-radius: 50%;
+      position: absolute;
+      box-shadow: 0 0 15px rgba(0, 114, 206, 0.8);
+      pointer-events: none;
+      transition: transform 0.05s linear;
+    }
+
     #toast {
       position: absolute;
-      bottom: max(90px, env(safe-area-inset-bottom));
+      bottom: 90px;
       left: 50%;
       transform: translateX(-50%);
       background: rgba(0, 0, 0, 0.85);
@@ -456,14 +511,11 @@
   <!-- Cartello Limite Velocità -->
   <div id="speed-limit-sign">50</div>
 
-  <!-- Controlli Rapidi a Destra -->
-  <div class="map-controls-right">
-    <button class="control-btn" onclick="ricentraSuPosizione()" title="La mia posizione">
-      <i data-lucide="crosshair" style="width:20px; height:20px;"></i>
-    </button>
-    <button class="control-btn" onclick="toggleAudio()" id="btn-audio" title="Guida vocale">
-      <i data-lucide="volume-2" id="audio-icon" style="width:20px; height:20px;"></i>
-    </button>
+  <!-- Selettore Viste (3D / 2D Track-up / 2D North-up) -->
+  <div id="view-mode-selector">
+    <button class="view-btn active" id="btn-view-3d" onclick="impostaVista('3d')" title="3D WebGL Prospettiva Inclinata con Edifici">3D</button>
+    <button class="view-btn" id="btn-view-2d" onclick="impostaVista('2d')" title="2D Direzione di Marcia">2D</button>
+    <button class="view-btn" id="btn-view-north" onclick="impostaVista('north')" title="2D Nord Fisso">N</button>
   </div>
 
   <!-- Barra Ricerca -->
@@ -478,7 +530,7 @@
     <div id="search-results"></div>
   </div>
 
-  <!-- Top Navigation HUD -->
+  <!-- Top Navigation HUD: Stile Renault Easy Link Automotive -->
   <div id="nav-header-easylink">
     <div class="nav-main-row">
       <div class="maneuver-badge-box" id="maneuver-badge">
@@ -487,7 +539,7 @@
       <div class="maneuver-content">
         <div class="maneuver-dist-row">
           <span class="maneuver-distance-val" id="maneuver-dist-val">-- m</span>
-          <span class="maneuver-stage-tag" id="maneuver-stage-tag">Crociera</span>
+          <span class="maneuver-stage-tag" id="maneuver-stage-tag">Crociera 3D</span>
         </div>
         <div class="maneuver-street-name" id="maneuver-next-street">Procedi dritto</div>
       </div>
@@ -496,7 +548,7 @@
       </button>
     </div>
 
-    <!-- Barra avvicinamento -->
+    <!-- Barra di avvicinamento progressivo -->
     <div class="approach-progress-bar">
       <div class="approach-progress-fill" id="approach-fill"></div>
     </div>
@@ -536,33 +588,42 @@
     </button>
   </div>
 
+  <!-- Joystick Guida -->
+  <div id="joystick-container">
+    <div style="font-size:10px; font-weight:800; color:var(--easylink-cyan); text-transform:uppercase;">Guida 3D Manuale</div>
+    <div id="joystick-base">
+      <div id="joystick-knob"></div>
+    </div>
+    <div style="font-size:9px; color:var(--text-muted);">Tasti W A S D / Frecce</div>
+  </div>
+
   <div id="toast"></div>
 
-  <!-- MapLibre GL JS -->
+  <!-- MapLibre GL JS (Motore Vettoriale 3D WebGL Open-Source) -->
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 
   <script>
     lucide.createIcons();
 
     // Stato
+    let currentViewMode = '3d'; // '3d', '2d', 'north'
     let userLocation = { lat: 39.3175, lon: 16.2736 }; // Cosenza/Rende
     let userHeading = 0;
     let userSpeedKmh = 50;
     let destLocation = null;
     let activeRoute = null;
     let isNavigating = false;
-    let voiceEnabled = true;
     let currentStepIndex = 0;
     let initialStepDistance = 1;
-    let isUserInteracting = false;
+    let isJoystickDriving = false;
 
-    // INIZIALIZZAZIONE MAPPA CON MAPLIBRE GL JS
+    // INIZIALIZZAZIONE MAPPA CON VERO MOTORE VETTORIALE 3D WEBGL (MapLibre GL + OpenFreeMap)
     const map = new maplibregl.Map({
       container: 'map',
       style: 'https://tiles.openfreemap.org/styles/bright',
       center: [userLocation.lon, userLocation.lat],
       zoom: 16,
-      pitch: 45,
+      pitch: 60, // Inclinazione tridimensionale reale a 60°
       bearing: 0,
       attributionControl: false
     });
@@ -587,8 +648,9 @@
 
     let destMarker = null;
 
-    // 1. CARICAMENTO LAYER 3D EDIFICI E ROTTA
+    // 1. CARICAMENTO LAYER EDIFICI IN VERO 3D ESTRUSO (3D Extruded Buildings)
     map.on('load', () => {
+      // Individua il layer delle etichette per inserire gli edifici al di sotto del testo
       const layers = map.getStyle().layers;
       let labelLayerId;
       for (let i = 0; i < layers.length; i++) {
@@ -598,14 +660,14 @@
         }
       }
 
-      // Edifici 3D Estrusi
+      // Layer degli edifici estrusi in 3D con illuminazione e altezze reali
       try {
         map.addLayer({
           'id': '3d-buildings-extrusion',
           'source': 'openmaptiles',
           'source-layer': 'building',
           'type': 'fill-extrusion',
-          'minzoom': 13,
+          'minzoom': 14,
           'paint': {
             'fill-extrusion-color': [
               'interpolate',
@@ -619,29 +681,30 @@
               'interpolate',
               ['linear'],
               ['zoom'],
-              13, 0,
-              15.5, ['get', 'render_height']
+              14, 0,
+              15.05, ['get', 'render_height']
             ],
             'fill-extrusion-base': [
               'interpolate',
               ['linear'],
               ['zoom'],
-              13, 0,
-              15.5, ['get', 'render_min_height']
+              14, 0,
+              15.05, ['get', 'render_min_height']
             ],
             'fill-extrusion-opacity': 0.88
           }
         }, labelLayerId);
       } catch (e) {
-        console.warn("3D extrusion:", e);
+        console.warn("3D extrusion initialization:", e);
       }
 
-      // Tracciato Rotta
+      // Layer Rotta Stradale (GeoJSON Line)
       map.addSource('route-source', {
         type: 'geojson',
         data: { type: 'FeatureCollection', features: [] }
       });
 
+      // Bordo luminescente azzurro esterno
       map.addLayer({
         id: 'route-glow-layer',
         type: 'line',
@@ -650,11 +713,12 @@
         paint: {
           'line-color': '#00b4d8',
           'line-width': 12,
-          'line-opacity': 0.4,
+          'line-opacity': 0.45,
           'line-blur': 4
         }
       });
 
+      // Linea di navigazione principale blu brillante
       map.addLayer({
         id: 'route-line-layer',
         type: 'line',
@@ -668,75 +732,68 @@
       });
     });
 
-    // 2. FORMULA CONTINUA: ZOOM <-> INCLINAZIONE 3D
-    // Più sei vicino (zoom alto) -> più scendi in 3D "da dietro l'auto" (pitch fino a 70°)
-    // Più sei lontano (zoom basso) -> più la mappa si raddrizza in 2D dall'alto (pitch 0°)
-    function calcolaPitchDaZoom(z) {
-      if (z <= 12.0) return 0;   // Lontano: 100% 2D zenitale (0°)
-      if (z >= 18.5) return 70;  // Vicino: vista 3D ripida da dietro (70°)
-      // Interpolazione lineare continua
-      return ((z - 12.0) / (18.5 - 12.0)) * 70;
-    }
-
-    // Gestione zoom manuale dell'utente (pinch/rotella): adatta l'inclinazione 3D in tempo reale
-    map.on('movestart', () => { isUserInteracting = true; });
-    map.on('moveend', () => { isUserInteracting = false; });
-
-    map.on('zoom', () => {
-      if (isUserInteracting) {
-        const targetPitch = calcolaPitchDaZoom(map.getZoom());
-        map.setPitch(targetPitch);
-      }
-    });
-
-    // RILEVAMENTO GPS REALE
+    // 2. RILEVAMENTO GPS REALE
     if ('geolocation' in navigator) {
       navigator.geolocation.getCurrentPosition(pos => {
         userLocation = { lat: pos.coords.latitude, lon: pos.coords.longitude };
         userMarker.setLngLat([userLocation.lon, userLocation.lat]);
-        aggiornaTelecameraAutomotive(16);
+        aggiornaTelecamera3D();
         aggiornaNomeStradaAttuale(userLocation);
       }, null, { enableHighAccuracy: true });
 
       navigator.geolocation.watchPosition(pos => {
+        if (isJoystickDriving) return;
         userLocation = { lat: pos.coords.latitude, lon: pos.coords.longitude };
         userMarker.setLngLat([userLocation.lon, userLocation.lat]);
-
         if (pos.coords.heading !== null && !isNaN(pos.coords.heading)) {
-          userHeading = pos.coords.heading;
-          userMarker.setRotation(userHeading);
+          impostaHeading(pos.coords.heading);
         }
         if (pos.coords.speed !== null && !isNaN(pos.coords.speed)) {
           userSpeedKmh = Math.round(pos.coords.speed * 3.6);
           aggiornaLimiteVelocita(userSpeedKmh);
         }
-
         if (isNavigating) aggiornaGuidaEasyLink();
-        else if (!isUserInteracting) aggiornaTelecameraAutomotive();
+        else aggiornaTelecamera3D();
       }, null, { enableHighAccuracy: true, maximumAge: 1000 });
     }
 
-    // TELECAMERA AUTOMOTIVE DINAMICA
-    function aggiornaTelecameraAutomotive(targetZoom = null) {
+    function impostaHeading(gradi) {
+      userHeading = gradi;
+      userMarker.setRotation(gradi);
+    }
+
+    // CALCOLO DINAMICO CONTINUO: più sei vicino (zoom alto) più è in 3D "da dietro",
+    // più sei lontano (zoom basso) più la mappa si appiattisce in 2D dall'alto.
+    function getPitchForZoom(zoom) {
+      if (zoom <= 12.5) return 0;   // Lontano: 100% 2D dall'alto
+      if (zoom >= 18) return 68;     // Molto vicino: 3D ripido immersivo "da dietro l'auto"
+      // Interpolazione graduale e fluida tra 12.5 e 18
+      const ratio = (zoom - 12.5) / (18 - 12.5);
+      return Math.round(ratio * 68);
+    }
+
+    function aggiornaTelecamera3D(targetZoom = null) {
       const z = targetZoom || map.getZoom();
-      const p = calcolaPitchDaZoom(z);
+      const targetPitch = getPitchForZoom(z);
 
       map.easeTo({
         center: [userLocation.lon, userLocation.lat],
-        pitch: p,
+        pitch: targetPitch,
         bearing: userHeading,
         zoom: z,
-        duration: 350
+        duration: 250
       });
     }
 
-    function ricentraSuPosizione() {
-      isUserInteracting = false;
-      aggiornaTelecameraAutomotive(16.5);
-      showToast("Visuale riallineata");
-    }
+    // Se l'utente zooma manualmente (con pinch o rotella), adatta l'inclinazione 2D/3D in tempo reale
+    map.on('zoom', () => {
+      if (isNavigating || isJoystickDriving) {
+        const p = getPitchForZoom(map.getZoom());
+        map.setPitch(p);
+      }
+    });
 
-    // 3. RICERCA INDIRIZZI
+    // 3. RICERCA DESTINAZIONE
     const searchInput = document.getElementById('destination-input');
     const resultsBox = document.getElementById('search-results');
     let debounceSearch = null;
@@ -794,7 +851,7 @@
       activeRoute = null;
     }
 
-    // 4. CALCOLO ROTTA OSRM
+    // 4. CALCOLO ITINERARIO CON OSRM
     async function impostaDestinazione(lat, lon, label) {
       destLocation = { lat, lon, name: label };
       if (destMarker) destMarker.remove();
@@ -805,23 +862,24 @@
                       </div>`;
       destMarker = new maplibregl.Marker({ element: el }).setLngLat([lon, lat]).addTo(map);
 
-      await calcolaPercorso();
+      await calcolaPercorsoEasyLink();
     }
 
-    async function calcolaPercorso() {
-      showToast("Calcolo itinerario...");
+    async function calcolaPercorsoEasyLink() {
+      showToast("Calcolo itinerario su rete stradale...");
       const url = `https://router.project-osrm.org/route/v1/driving/${userLocation.lon},${userLocation.lat};${destLocation.lon},${destLocation.lat}?overview=full&geometries=geojson&steps=true`;
 
       try {
         const res = await fetch(url);
         const data = await res.json();
         if (!data.routes || !data.routes.length) {
-          showToast("Nessun percorso trovato.");
+          showToast("Nessuna strada trovata.");
           return;
         }
 
         activeRoute = data.routes[0];
 
+        // Carica la rotta nel layer WebGL
         if (map.getSource('route-source')) {
           map.getSource('route-source').setData({
             type: 'Feature',
@@ -829,11 +887,12 @@
           });
         }
 
-        // Mostra intera rotta: da lontano è raddrizzata (pitch basso) per una panoramica chiara
+        // Inquadra percorso
         const coords = activeRoute.geometry.coordinates;
         const bounds = coords.reduce((b, coord) => b.extend(coord), new maplibregl.LngLatBounds(coords[0], coords[0]));
-        map.fitBounds(bounds, { padding: 80, pitch: 20 });
+        map.fitBounds(bounds, { padding: 80, pitch: 40 });
 
+        // Dati Footer
         const km = (activeRoute.distance / 1000).toFixed(1);
         const min = Math.round(activeRoute.duration / 60);
         document.getElementById('footer-km').innerText = `${km} km`;
@@ -845,11 +904,11 @@
 
         document.getElementById('nav-footer-easylink').style.display = 'flex';
       } catch (err) {
-        showToast("Errore di rete.");
+        showToast("Errore di connessione.");
       }
     }
 
-    // 5. GUIDA ATTIVA CON CAMBIO PROSPETTIVA LEGATO ALLO ZOOM
+    // 5. GUIDA ATTIVA 3D AUTO-ZOOM A 3 STADI
     function avviaGuidaEasyLink() {
       if (!activeRoute) return;
       isNavigating = true;
@@ -876,7 +935,7 @@
     function aggiornaGuidaEasyLink() {
       const steps = activeRoute.legs[0].steps;
       if (currentStepIndex >= steps.length) {
-        showToast("Destinazione raggiunta");
+        showToast("Sei giunto a destinazione");
         interrompiGuida();
         return;
       }
@@ -903,41 +962,31 @@
       const stageTag = document.getElementById('maneuver-stage-tag');
       const laneBox = document.getElementById('lane-guidance');
 
-      // GESTIONE PROSPETTIVA A SECONDA DELLA DISTANZA:
-      let targetZoom = 15.5;
-
-      if (dist > 400) {
-        // LONTANO DALL'INCROCIO (Crociera / Autostrada):
-        // Zoom allargato (14.5) -> Inclinazione bassa (25°), visuale panoramica dall'alto quasi 2D
-        targetZoom = userSpeedKmh > 75 ? 14.0 : 15.0;
-        stageTag.innerText = "Crociera Panoramica";
+      // AUTO-ZOOM 3D E STRATEGIA DI PROSPETTIVA
+      let targetZoom = 16;
+      if (dist > 350) {
+        targetZoom = userSpeedKmh > 75 ? 15 : 16;
+        stageTag.innerText = "Crociera 3D";
         stageTag.style.color = "var(--easylink-cyan)";
         laneBox.style.display = "none";
-      } else if (dist <= 400 && dist > 120) {
-        // IN AVVICINAMENTO:
-        // Zoom intermedio (16.8) -> Inclinazione decisa (50°), si abbassa dietro l'auto
-        targetZoom = 16.8;
-        stageTag.innerText = "Avvicinamento";
+      } else if (dist <= 350 && dist > 100) {
+        targetZoom = 17.2;
+        stageTag.innerText = "Allerta Svolta";
         stageTag.style.color = "#f59e0b";
         laneBox.style.display = "flex";
       } else {
-        // ALL'INCROCIO / ROTONDA:
-        // Zoom ravvicinato (18.5) -> Inclinazione massima (70°), piena visuale 3D alle spalle del veicolo con palazzi estrusi
-        targetZoom = 18.5;
-        stageTag.innerText = "Incrocio 3D";
+        targetZoom = 18.5; // Zoom massimo sull'incrocio con gli edifici 3D attorno
+        stageTag.innerText = "Manovra";
         stageTag.style.color = "var(--easylink-green)";
         laneBox.style.display = "flex";
       }
 
-      if (!isUserInteracting) {
-        aggiornaTelecameraAutomotive(targetZoom);
-      }
-
-      aggiornaIconaManovra(step);
+      aggiornaTelecamera3D(targetZoom);
+      aggiornaIconaManovraEasyLink(step);
       aggiornaNomeStradaAttuale(userLocation);
     }
 
-    function aggiornaIconaManovra(step) {
+    function aggiornaIconaManovraEasyLink(step) {
       const mod = step.maneuver.modifier || '';
       const type = step.maneuver.type;
       let icon = 'arrow-up';
@@ -961,20 +1010,12 @@
       else if (step.maneuver.type === 'arrive') testo = "Sei arrivato a destinazione";
       else testo = `Continua dritto ${via}`;
 
-      if (voiceEnabled && 'speechSynthesis' in window) {
+      if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
         const u = new SpeechSynthesisUtterance(testo);
         u.lang = 'it-IT';
         window.speechSynthesis.speak(u);
       }
-    }
-
-    function toggleAudio() {
-      voiceEnabled = !voiceEnabled;
-      const icon = document.getElementById('audio-icon');
-      icon.setAttribute('data-lucide', voiceEnabled ? 'volume-2' : 'volume-x');
-      lucide.createIcons();
-      showToast(voiceEnabled ? "Guida vocale attiva" : "Guida vocale disattivata");
     }
 
     function aggiornaLimiteVelocita(speed) {
@@ -1006,6 +1047,98 @@
       const Δφ = (lat2 - lat1) * Math.PI / 180, Δλ = (lon2 - lon1) * Math.PI / 180;
       const a = Math.sin(Δφ/2)**2 + Math.cos(φ1)*Math.cos(φ2)*Math.sin(Δλ/2)**2;
       return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    }
+
+    // 6. JOYSTICK VIRTUALE PER GUIDARE NEL VERO SPAZIO 3D
+    const joyBase = document.getElementById('joystick-base');
+    const joyKnob = document.getElementById('joystick-knob');
+    let isDraggingJoy = false;
+    let joyX = 0, joyY = 0;
+    let joyLoop = null;
+
+    function joyStart(e) {
+      isDraggingJoy = true;
+      isJoystickDriving = true;
+      joyMove(e);
+      if (!joyLoop) joyLoop = requestAnimationFrame(joyUpdate);
+    }
+
+    function joyMove(e) {
+      if (!isDraggingJoy) return;
+      const rect = joyBase.getBoundingClientRect();
+      const cx = e.touches ? e.touches[0].clientX : e.clientX;
+      const cy = e.touches ? e.touches[0].clientY : e.clientY;
+      const maxR = rect.width / 2 - 8;
+
+      let dx = cx - (rect.left + rect.width / 2);
+      let dy = cy - (rect.top + rect.height / 2);
+      const d = Math.hypot(dx, dy);
+      if (d > maxR) { dx = (dx/d)*maxR; dy = (dy/d)*maxR; }
+
+      joyX = dx / maxR;
+      joyY = dy / maxR;
+      joyKnob.style.transform = `translate(${dx}px, ${dy}px)`;
+    }
+
+    function joyEnd() {
+      isDraggingJoy = false;
+      joyX = 0; joyY = 0;
+      joyKnob.style.transform = `translate(0, 0)`;
+      if (joyLoop) { cancelAnimationFrame(joyLoop); joyLoop = null; }
+    }
+
+    joyBase.addEventListener('mousedown', joyStart);
+    window.addEventListener('mousemove', joyMove);
+    window.addEventListener('mouseup', joyEnd);
+    joyBase.addEventListener('touchstart', joyStart, { passive: false });
+    window.addEventListener('touchmove', joyMove, { passive: false });
+    window.addEventListener('touchend', joyEnd);
+
+    const keys = {};
+    window.addEventListener('keydown', e => {
+      keys[e.key.toLowerCase()] = true;
+      if (['w','a','s','d','arrowup','arrowleft','arrowdown','arrowright'].includes(e.key.toLowerCase())) {
+        isJoystickDriving = true;
+        if (!joyLoop) joyLoop = requestAnimationFrame(joyUpdate);
+      }
+    });
+    window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+
+    function joyUpdate() {
+      let vx = joyX, vy = joyY;
+      if (keys['w'] || keys['arrowup']) vy = -1;
+      if (keys['s'] || keys['arrowdown']) vy = 1;
+      if (keys['a'] || keys['arrowleft']) vx = -1;
+      if (keys['d'] || keys['arrowright']) vx = 1;
+
+      if (Math.abs(vx) > 0.05 || Math.abs(vy) > 0.05) {
+        userHeading += vx * 3.8;
+        impostaHeading(userHeading);
+
+        userSpeedKmh = Math.round(Math.abs(vy) * 75);
+        aggiornaLimiteVelocita(userSpeedKmh);
+
+        const speedMps = (userSpeedKmh / 3.6) * 0.016 * -Math.sign(vy);
+        const rad = (userHeading * Math.PI) / 180;
+        const dLat = (speedMps * Math.cos(rad)) / 111320;
+        const dLon = (speedMps * Math.sin(rad)) / (111320 * Math.cos(userLocation.lat * Math.PI / 180));
+
+        userLocation.lat += dLat;
+        userLocation.lon += dLon;
+        userMarker.setLngLat([userLocation.lon, userLocation.lat]);
+
+        if (isNavigating) aggiornaGuidaEasyLink();
+        else aggiornaTelecamera3D();
+      }
+
+      if (isDraggingJoy || Object.values(keys).some(k => k)) {
+        joyLoop = requestAnimationFrame(joyUpdate);
+      } else { joyLoop = null; }
+    }
+
+    function ricentraDietroAuto() {
+      aggiornaTelecamera3D();
+      showToast("Visuale centrata dietro all'auto");
     }
 
     function showToast(msg) {
