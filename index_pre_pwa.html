@@ -2,18 +2,7 @@
 <html lang="it">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  
-  <!-- iOS PWA Standalone Web App Meta Tags -->
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="AuraRoute">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="theme-color" content="#0f141c">
-  <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="apple-touch-icon" sizes="192x192" href="icon-192.png">
-  <link rel="apple-touch-icon" sizes="512x512" href="icon-512.png">
-  <link rel="manifest" href="manifest.json">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>AuraRoute — Navigatore Automotive 3D WebGL</title>
   
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -69,7 +58,7 @@
     /* Top Navigation HUD (Stile Renault Easy Link Automotive) */
     #nav-header-easylink {
       position: absolute;
-      top: max(16px, env(safe-area-inset-top));
+      top: 16px;
       left: 16px;
       right: 16px;
       max-width: 580px;
@@ -247,7 +236,7 @@
     /* Barra Riepilogo Viaggio */
     #nav-footer-easylink {
       position: absolute;
-      bottom: max(20px, env(safe-area-inset-bottom));
+      bottom: 20px;
       left: 50%;
       transform: translateX(-50%);
       z-index: 500;
@@ -303,7 +292,7 @@
     /* Barra Ricerca Iniziale */
     #search-panel {
       position: absolute;
-      top: max(16px, env(safe-area-inset-top));
+      top: 16px;
       left: 16px;
       right: 16px;
       max-width: 480px;
@@ -446,7 +435,7 @@
     /* Joystick Virtuale (In basso a sinistra) */
     #joystick-container {
       position: absolute;
-      bottom: max(20px, env(safe-area-inset-bottom));
+      bottom: 20px;
       left: 20px;
       z-index: 600;
       background: rgba(15, 23, 42, 0.9);
@@ -1151,14 +1140,6 @@
       t.innerText = msg;
       t.style.display = 'block';
       setTimeout(() => t.style.display = 'none', 3000);
-    }
-  </script>
-
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js').catch(err => console.log('SW reg error:', err));
-      });
     }
   </script>
 </body>
