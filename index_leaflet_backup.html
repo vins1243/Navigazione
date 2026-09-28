@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>AuraRoute — Navigatore Automotive 3D WebGL</title>
+  <title>AuraRoute — Sistema di Navigazione Automotive</title>
   
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   
-  <!-- MapLibre GL CSS -->
-  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
@@ -45,17 +45,34 @@
       position: relative;
     }
 
-    /* Contenitore Mappa WebGL a Tutto Schermo */
-    #map {
+    /* Mappa e Prospettiva 3D Automotive */
+    #map-viewport {
       width: 100%;
       height: 100%;
       position: absolute;
       top: 0;
       left: 0;
+      perspective: 800px;
+      overflow: hidden;
       background: #e2e8f0;
     }
 
-    /* Top Navigation HUD (Stile Renault Easy Link Automotive) */
+    #map {
+      width: 100%;
+      height: 120%;
+      position: absolute;
+      top: -10%;
+      left: 0;
+      transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    /* Stile 3D Inception Easy Link: mappa inclinata con punto di fuga orizzontale */
+    .view-3d #map {
+      transform: rotateX(42deg) translateZ(0);
+      transform-origin: 50% 85%;
+    }
+
+    /* Top Navigation Banner: Stile Easy Link con Manovra e Lane Guidance */
     #nav-header-easylink {
       position: absolute;
       top: 16px;
@@ -142,7 +159,7 @@
       margin-top: 3px;
     }
 
-    /* Barra di avvicinamento progressivo */
+    /* Barra di avvicinamento progressiva alla curva (Easy Link Distance Bar) */
     .approach-progress-bar {
       width: 100%;
       height: 4px;
@@ -158,7 +175,7 @@
       transition: width 0.2s linear;
     }
 
-    /* Lane Guidance (Corsie) */
+    /* Lane Guidance (Indicatore corsie Easy Link) */
     #lane-guidance {
       display: none;
       align-items: center;
@@ -186,7 +203,7 @@
       box-shadow: 0 0 10px rgba(16, 185, 129, 0.6);
     }
 
-    /* Cartello Limite Velocità */
+    /* Cartello Limite di Velocità (Traffic Sign Speed Limit Easy Link) */
     #speed-limit-sign {
       position: absolute;
       top: 100px;
@@ -207,14 +224,14 @@
       letter-spacing: -0.05em;
     }
 
-    /* Pillola Strada Attuale (Bottom Center) */
+    /* Current Street Pill (In basso al centro, come Easy Link) */
     #current-street-pill {
       position: absolute;
       bottom: 96px;
       left: 50%;
       transform: translateX(-50%);
       z-index: 450;
-      background: rgba(15, 23, 42, 0.92);
+      background: rgba(15, 23, 42, 0.9);
       backdrop-filter: blur(12px);
       border: 1px solid var(--easylink-border);
       border-radius: 20px;
@@ -233,7 +250,7 @@
       text-overflow: ellipsis;
     }
 
-    /* Barra Riepilogo Viaggio */
+    /* Barra Riepilogo Percorso Inferiore (Easy Link Trip Info) */
     #nav-footer-easylink {
       position: absolute;
       bottom: 20px;
@@ -251,11 +268,22 @@
       gap: 28px;
     }
 
-    .footer-stat-box { text-align: center; }
-    .footer-stat-val { font-size: 18px; font-weight: 800; color: white; }
-    .footer-stat-lbl { font-size: 10px; color: var(--text-muted); text-transform: uppercase; font-weight: 700; }
+    .footer-stat-box {
+      text-align: center;
+    }
+    .footer-stat-val {
+      font-size: 18px;
+      font-weight: 800;
+      color: white;
+    }
+    .footer-stat-lbl {
+      font-size: 10px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-weight: 700;
+    }
 
-    /* Selettore Viste (3D / 2D / N) */
+    /* Selettore Viste Mappa (2D / 2D Nord / 3D come tasto "Viste" su Easy Link) */
     #view-mode-selector {
       position: absolute;
       top: 100px;
@@ -324,7 +352,9 @@
       font-weight: 600;
       outline: none;
     }
-    .search-box input::placeholder { color: var(--text-muted); }
+    .search-box input::placeholder {
+      color: var(--text-muted);
+    }
 
     #search-results {
       background: var(--easylink-card);
@@ -346,99 +376,57 @@
       flex-direction: column;
       gap: 2px;
     }
-    .result-item:hover { background: rgba(255, 255, 255, 0.08); }
+    .result-item:hover {
+      background: rgba(255, 255, 255, 0.08);
+    }
     .result-title { font-weight: 700; color: white; font-size: 14px; }
     .result-sub { font-size: 12px; color: var(--text-muted); }
 
-    /* Modello Veicolo 3D Realistico con Fascio Fari & Ombra sul Terreno */
-    .vehicle-3d-model {
-      position: relative;
-      width: 48px;
-      height: 48px;
-      transform-style: preserve-3d;
-      pointer-events: none;
-    }
-
-    /* Fascio Luminoso Fari Proiettato sulla Carreggiata */
-    .headlights-beam {
-      position: absolute;
-      top: -45px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 0;
-      height: 0;
-      border-left: 22px solid transparent;
-      border-right: 22px solid transparent;
-      border-top: 48px solid rgba(255, 255, 255, 0.28);
-      filter: blur(4px);
-      pointer-events: none;
-    }
-
-    /* Ombra Veicolo sul Terreno */
-    .car-ground-shadow {
-      position: absolute;
-      width: 38px;
-      height: 18px;
-      background: rgba(0, 0, 0, 0.5);
-      border-radius: 50%;
-      top: 18px;
-      left: 5px;
-      filter: blur(4px);
-    }
-
-    /* Sagoma 3D dell'Auto con Riflessi e Gradiente di Carrozzeria */
-    .car-chassis {
-      position: absolute;
-      width: 32px;
+    /* Veicolo e Puntatore */
+    .vehicle-marker-box {
+      width: 44px;
       height: 44px;
-      top: 2px;
-      left: 8px;
-      background: linear-gradient(180deg, #38bdf8 0%, #0284c7 45%, #0369a1 100%);
-      border-radius: 10px 10px 8px 8px;
-      border: 1.5px solid rgba(255, 255, 255, 0.85);
-      box-shadow: 0 6px 14px rgba(0, 0, 0, 0.4), inset 0 2px 4px rgba(255, 255, 255, 0.4);
       display: flex;
-      flex-direction: column;
       align-items: center;
-      padding-top: 7px;
+      justify-content: center;
+      transition: transform 0.15s ease-out;
     }
 
-    /* Parabrezza Vettura */
-    .car-windshield {
-      width: 22px;
-      height: 12px;
-      background: #0f172a;
-      border-radius: 4px 4px 2px 2px;
-      border: 1px solid rgba(255, 255, 255, 0.3);
-      position: relative;
-    }
-    .car-windshield::after {
-      content: '';
-      position: absolute;
-      top: 1px;
-      left: 2px;
-      width: 5px;
-      height: 9px;
-      background: rgba(255, 255, 255, 0.4);
-      transform: skewX(-20deg);
+    .vehicle-pointer {
+      width: 38px;
+      height: 38px;
+      background: var(--easylink-blue);
+      border: 3px solid #ffffff;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      box-shadow: 0 0 25px rgba(0, 114, 206, 0.9);
     }
 
-    /* Tettuccio */
-    .car-roof {
-      width: 18px;
-      height: 10px;
-      background: #0284c7;
-      margin-top: 2px;
-      border-radius: 2px;
+    /* Freccia Incrocio Sull'Asfalto */
+    .easylink-junction-arrow {
+      width: 60px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      animation: pulseArrow 1.2s infinite alternate ease-in-out;
     }
 
-    /* Joystick Virtuale (In basso a sinistra) */
+    @keyframes pulseArrow {
+      from { transform: scale(0.9); opacity: 0.85; filter: drop-shadow(0 0 5px #10b981); }
+      to { transform: scale(1.15); opacity: 1; filter: drop-shadow(0 0 18px #10b981); }
+    }
+
+    /* Joystick Virtuale (Guida Manuale) */
     #joystick-container {
       position: absolute;
       bottom: 20px;
       left: 20px;
       z-index: 600;
-      background: rgba(15, 23, 42, 0.9);
+      background: rgba(15, 23, 42, 0.88);
       backdrop-filter: blur(14px);
       border: 1px solid var(--easylink-border);
       padding: 12px;
@@ -492,22 +480,24 @@
     }
   </style>
 </head>
-<body>
+<body class="view-3d">
 
-  <!-- Mappa WebGL Reale con MapLibre GL JS -->
-  <div id="map"></div>
-
-  <!-- Cartello Limite Velocità -->
-  <div id="speed-limit-sign">50</div>
-
-  <!-- Selettore Viste (3D / 2D Track-up / 2D North-up) -->
-  <div id="view-mode-selector">
-    <button class="view-btn active" id="btn-view-3d" onclick="impostaVista('3d')" title="3D WebGL Prospettiva Inclinata con Edifici">3D</button>
-    <button class="view-btn" id="btn-view-2d" onclick="impostaVista('2d')" title="2D Direzione di Marcia">2D</button>
-    <button class="view-btn" id="btn-view-north" onclick="impostaVista('north')" title="2D Nord Fisso">N</button>
+  <!-- Mappa con Contenitore Prospettico 3D -->
+  <div id="map-viewport">
+    <div id="map"></div>
   </div>
 
-  <!-- Barra Ricerca -->
+  <!-- Cartello Limite di Velocità (Easy Link Speed Sign) -->
+  <div id="speed-limit-sign">50</div>
+
+  <!-- Selettore Modalità Vista (3D / 2D / Nord) -->
+  <div id="view-mode-selector">
+    <button class="view-btn active" id="btn-view-3d" onclick="impostaVista('3d')" title="Vista 3D Inception Prospettica">3D</button>
+    <button class="view-btn" id="btn-view-2d" onclick="impostaVista('2d')" title="Vista 2D Direzione">2D</button>
+    <button class="view-btn" id="btn-view-north" onclick="impostaVista('north')" title="Vista 2D Nord Fisso">N</button>
+  </div>
+
+  <!-- Barra Ricerca e Selezione Percorso -->
   <div id="search-panel">
     <div class="search-box">
       <i data-lucide="compass" style="width:20px; height:20px; color:var(--easylink-cyan);"></i>
@@ -519,7 +509,7 @@
     <div id="search-results"></div>
   </div>
 
-  <!-- Top Navigation HUD: Stile Renault Easy Link Automotive -->
+  <!-- Top Navigation HUD: Stile Renault Easy Link -->
   <div id="nav-header-easylink">
     <div class="nav-main-row">
       <div class="maneuver-badge-box" id="maneuver-badge">
@@ -528,7 +518,7 @@
       <div class="maneuver-content">
         <div class="maneuver-dist-row">
           <span class="maneuver-distance-val" id="maneuver-dist-val">-- m</span>
-          <span class="maneuver-stage-tag" id="maneuver-stage-tag">Crociera 3D</span>
+          <span class="maneuver-stage-tag" id="maneuver-stage-tag">Crociera</span>
         </div>
         <div class="maneuver-street-name" id="maneuver-next-street">Procedi dritto</div>
       </div>
@@ -537,12 +527,12 @@
       </button>
     </div>
 
-    <!-- Barra di avvicinamento progressivo -->
+    <!-- Barra di avvicinamento progressivo al punto di svolta -->
     <div class="approach-progress-bar">
       <div class="approach-progress-fill" id="approach-fill"></div>
     </div>
 
-    <!-- Lane Guidance -->
+    <!-- Lane Guidance (Indicatore corsie stradali) -->
     <div id="lane-guidance">
       <span style="font-size:11px; color:var(--text-muted); font-weight:700; margin-right:4px;">CORSIE:</span>
       <div class="lane-arrow" id="lane-0"><i data-lucide="arrow-up" style="width:16px; height:16px;"></i></div>
@@ -551,13 +541,13 @@
     </div>
   </div>
 
-  <!-- Pillola Strada Attuale -->
+  <!-- Pillola Strada Attuale (Bottom Center) -->
   <div id="current-street-pill">
     <i data-lucide="map-pin" style="width:14px; height:14px; color:var(--easylink-cyan);"></i>
-    <span id="current-street-text">In attesa di posizione...</span>
+    <span id="current-street-text">In attesa di localizzazione...</span>
   </div>
 
-  <!-- Footer Info Viaggio -->
+  <!-- Barra Riepilogo Viaggio Inferiore (Easy Link Trip Info) -->
   <div id="nav-footer-easylink">
     <div class="footer-stat-box">
       <div class="footer-stat-val" id="footer-eta">--:--</div>
@@ -577,9 +567,9 @@
     </button>
   </div>
 
-  <!-- Joystick Guida -->
+  <!-- Joystick Guida Manuale da Fermo -->
   <div id="joystick-container">
-    <div style="font-size:10px; font-weight:800; color:var(--easylink-cyan); text-transform:uppercase;">Guida 3D Manuale</div>
+    <div style="font-size:10px; font-weight:800; color:var(--easylink-cyan); text-transform:uppercase;">Joystick Guida</div>
     <div id="joystick-base">
       <div id="joystick-knob"></div>
     </div>
@@ -588,15 +578,15 @@
 
   <div id="toast"></div>
 
-  <!-- MapLibre GL JS (Motore Vettoriale 3D WebGL Open-Source) -->
-  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <script>
     lucide.createIcons();
 
-    // Stato
+    // Stato del Sistema Easy Link
     let currentViewMode = '3d'; // '3d', '2d', 'north'
-    let userLocation = { lat: 39.3175, lon: 16.2736 }; // Cosenza/Rende
+    let userLocation = { lat: 39.3175, lon: 16.2736 };
     let userHeading = 0;
     let userSpeedKmh = 50;
     let destLocation = null;
@@ -604,136 +594,48 @@
     let isNavigating = false;
     let currentStepIndex = 0;
     let initialStepDistance = 1;
-    let isJoystickDriving = false;
 
-    // INIZIALIZZAZIONE MAPPA CON VERO MOTORE VETTORIALE 3D WEBGL (MapLibre GL + OpenFreeMap)
-    const map = new maplibregl.Map({
-      container: 'map',
-      style: 'https://tiles.openfreemap.org/styles/bright',
-      center: [userLocation.lon, userLocation.lat],
-      zoom: 16,
-      pitch: 60, // Inclinazione tridimensionale reale a 60°
-      bearing: 0,
-      attributionControl: false
-    });
+    // Inizializza Mappa Leaflet
+    const map = L.map('map', { zoomControl: false }).setView([userLocation.lat, userLocation.lon], 16);
 
-    map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
+    // Tile OpenStreetMap Ufficiali
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
 
-    // Marker Veicolo 3D Volumetrico
-    const carEl = document.createElement('div');
-    carEl.className = 'vehicle-3d-model';
-    carEl.innerHTML = `
-      <div class="headlights-beam"></div>
-      <div class="car-ground-shadow"></div>
-      <div class="car-chassis">
-        <div class="car-windshield"></div>
-        <div class="car-roof"></div>
-      </div>
-    `;
-
-    const userMarker = new maplibregl.Marker({ element: carEl, rotationAlignment: 'map' })
-      .setLngLat([userLocation.lon, userLocation.lat])
-      .addTo(map);
-
+    let routeLayer = null;
     let destMarker = null;
+    let junctionArrowMarker = null;
 
-    // 1. CARICAMENTO LAYER EDIFICI IN VERO 3D ESTRUSO (3D Extruded Buildings)
-    map.on('load', () => {
-      // Individua il layer delle etichette per inserire gli edifici al di sotto del testo
-      const layers = map.getStyle().layers;
-      let labelLayerId;
-      for (let i = 0; i < layers.length; i++) {
-        if (layers[i].type === 'symbol' && layers[i].layout && layers[i].layout['text-field']) {
-          labelLayerId = layers[i].id;
-          break;
-        }
-      }
-
-      // Layer degli edifici estrusi in 3D con illuminazione e altezze reali
-      try {
-        map.addLayer({
-          'id': '3d-buildings-extrusion',
-          'source': 'openmaptiles',
-          'source-layer': 'building',
-          'type': 'fill-extrusion',
-          'minzoom': 14,
-          'paint': {
-            'fill-extrusion-color': [
-              'interpolate',
-              ['linear'],
-              ['get', 'render_height'],
-              0, '#d1d5db',
-              30, '#94a3b8',
-              80, '#64748b'
-            ],
-            'fill-extrusion-height': [
-              'interpolate',
-              ['linear'],
-              ['zoom'],
-              14, 0,
-              15.05, ['get', 'render_height']
-            ],
-            'fill-extrusion-base': [
-              'interpolate',
-              ['linear'],
-              ['zoom'],
-              14, 0,
-              15.05, ['get', 'render_min_height']
-            ],
-            'fill-extrusion-opacity': 0.88
-          }
-        }, labelLayerId);
-      } catch (e) {
-        console.warn("3D extrusion initialization:", e);
-      }
-
-      // Layer Rotta Stradale (GeoJSON Line)
-      map.addSource('route-source', {
-        type: 'geojson',
-        data: { type: 'FeatureCollection', features: [] }
-      });
-
-      // Bordo luminescente azzurro esterno
-      map.addLayer({
-        id: 'route-glow-layer',
-        type: 'line',
-        source: 'route-source',
-        layout: { 'line-join': 'round', 'line-cap': 'round' },
-        paint: {
-          'line-color': '#00b4d8',
-          'line-width': 12,
-          'line-opacity': 0.45,
-          'line-blur': 4
-        }
-      });
-
-      // Linea di navigazione principale blu brillante
-      map.addLayer({
-        id: 'route-line-layer',
-        type: 'line',
-        source: 'route-source',
-        layout: { 'line-join': 'round', 'line-cap': 'round' },
-        paint: {
-          'line-color': '#0072ce',
-          'line-width': 7,
-          'line-opacity': 0.95
-        }
-      });
+    // Marker Vettura Easy Link (Puntatore con fascio di luce)
+    const vehicleIcon = L.divIcon({
+      className: 'vehicle-wrap',
+      html: `<div class="vehicle-marker-box" id="vehicle-icon-wrap">
+              <div class="vehicle-pointer">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                  <polygon points="12 2 20 20 12 16 4 20 12 2" fill="white"/>
+                </svg>
+              </div>
+             </div>`,
+      iconSize: [44, 44],
+      iconAnchor: [22, 22]
     });
+    let userMarker = L.marker([userLocation.lat, userLocation.lon], { icon: vehicleIcon }).addTo(map);
 
-    // 2. RILEVAMENTO GPS REALE
+    // 1. Rilevamento GPS
     if ('geolocation' in navigator) {
       navigator.geolocation.getCurrentPosition(pos => {
         userLocation = { lat: pos.coords.latitude, lon: pos.coords.longitude };
-        userMarker.setLngLat([userLocation.lon, userLocation.lat]);
-        aggiornaTelecamera3D();
+        userMarker.setLatLng([userLocation.lat, userLocation.lon]);
+        centraTelecameraEasyLink();
         aggiornaNomeStradaAttuale(userLocation);
       }, null, { enableHighAccuracy: true });
 
       navigator.geolocation.watchPosition(pos => {
         if (isJoystickDriving) return;
         userLocation = { lat: pos.coords.latitude, lon: pos.coords.longitude };
-        userMarker.setLngLat([userLocation.lon, userLocation.lat]);
+        userMarker.setLatLng([userLocation.lat, userLocation.lon]);
         if (pos.coords.heading !== null && !isNaN(pos.coords.heading)) {
           impostaHeading(pos.coords.heading);
         }
@@ -742,57 +644,51 @@
           aggiornaLimiteVelocita(userSpeedKmh);
         }
         if (isNavigating) aggiornaGuidaEasyLink();
-        else aggiornaTelecamera3D();
+        else centraTelecameraEasyLink();
       }, null, { enableHighAccuracy: true, maximumAge: 1000 });
     }
 
     function impostaHeading(gradi) {
       userHeading = gradi;
-      userMarker.setRotation(gradi);
+      const el = document.getElementById('vehicle-icon-wrap');
+      if (el) el.style.transform = `rotate(${gradi}deg)`;
     }
 
-    // TELECAMERA 3D AUTOMOTIVE: segue l'auto con Pitch reale a 60°, Bearing e offset in avanti
-    function aggiornaTelecamera3D(targetZoom = null) {
-      const currentZoom = targetZoom || map.getZoom();
-      let targetPitch = 60;
-      let targetBearing = userHeading;
-
-      if (currentViewMode === '2d') {
-        targetPitch = 0; // Piana dall'alto
-        targetBearing = userHeading;
-      } else if (currentViewMode === 'north') {
-        targetPitch = 0;
-        targetBearing = 0; // Nord fisso
+    // Centra la telecamera con offset verso il basso (lascia il 65% della mappa in avanti)
+    function centraTelecameraEasyLink() {
+      // In modalità 3D e 2D Track-Up, calcoliamo un punto leggermente davanti all'auto
+      if (currentViewMode === '3d' || currentViewMode === '2d') {
+        const rad = (userHeading * Math.PI) / 180;
+        // Offset 100 metri davanti all'auto per visuale da cruscotto
+        const offsetLat = (100 * Math.cos(rad)) / 111320;
+        const offsetLon = (100 * Math.sin(rad)) / (111320 * Math.cos(userLocation.lat * Math.PI / 180));
+        map.panTo([userLocation.lat + offsetLat, userLocation.lon + offsetLon], { animate: true, duration: 0.3 });
+      } else {
+        map.panTo([userLocation.lat, userLocation.lon], { animate: true });
       }
-
-      map.easeTo({
-        center: [userLocation.lon, userLocation.lat],
-        pitch: targetPitch,
-        bearing: targetBearing,
-        zoom: currentZoom,
-        duration: 300
-      });
     }
 
-    // Selettore Viste Easy Link
+    // Gestione Viste Easy Link (3D / 2D / Nord)
     function impostaVista(mode) {
       currentViewMode = mode;
       document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+      document.body.classList.remove('view-3d');
 
       if (mode === '3d') {
+        document.body.classList.add('view-3d');
         document.getElementById('btn-view-3d').classList.add('active');
-        showToast("Visuale 3D WebGL con Edifici Estrusi");
+        showToast("Vista 3D Inception Prospettica");
       } else if (mode === '2d') {
         document.getElementById('btn-view-2d').classList.add('active');
-        showToast("Visuale 2D Direzione (Track-up)");
+        showToast("Vista 2D Direzione (Track-up)");
       } else {
         document.getElementById('btn-view-north').classList.add('active');
-        showToast("Visuale 2D Nord Fisso");
+        showToast("Vista 2D Nord Fisso (North-up)");
       }
-      aggiornaTelecamera3D();
+      centraTelecameraEasyLink();
     }
 
-    // 3. RICERCA DESTINAZIONE
+    // 2. Ricerca Destinazione
     const searchInput = document.getElementById('destination-input');
     const resultsBox = document.getElementById('search-results');
     let debounceSearch = null;
@@ -835,63 +731,50 @@
 
     map.on('click', e => {
       if (isNavigating) return;
-      impostaDestinazione(e.lngLat.lat, e.lngLat.lng, "Punto selezionato");
+      impostaDestinazione(e.latlng.lat, e.latlng.lng, "Destinazione selezionata");
     });
 
     function pulisciRicerca() {
       searchInput.value = '';
       document.getElementById('btn-clear-search').style.display = 'none';
       resultsBox.style.display = 'none';
-      if (destMarker) destMarker.remove();
-      if (map.getSource('route-source')) {
-        map.getSource('route-source').setData({ type: 'FeatureCollection', features: [] });
-      }
+      if (destMarker) map.removeLayer(destMarker);
+      if (routeLayer) map.removeLayer(routeLayer);
       document.getElementById('nav-footer-easylink').style.display = 'none';
       activeRoute = null;
     }
 
-    // 4. CALCOLO ITINERARIO CON OSRM
+    // 3. Calcolo Tracciato OSRM
     async function impostaDestinazione(lat, lon, label) {
       destLocation = { lat, lon, name: label };
-      if (destMarker) destMarker.remove();
-
-      const el = document.createElement('div');
-      el.innerHTML = `<div style="background:#ef4444; width:34px; height:34px; border-radius:50%; border:3px solid white; display:flex; align-items:center; justify-content:center; color:white; box-shadow:0 0 20px #ef4444;">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/></svg>
-                      </div>`;
-      destMarker = new maplibregl.Marker({ element: el }).setLngLat([lon, lat]).addTo(map);
-
+      if (destMarker) map.removeLayer(destMarker);
+      destMarker = L.marker([lat, lon]).addTo(map).bindPopup(label).openPopup();
       await calcolaPercorsoEasyLink();
     }
 
     async function calcolaPercorsoEasyLink() {
-      showToast("Calcolo itinerario su rete stradale...");
+      showToast("Calcolo itinerario in corso...");
       const url = `https://router.project-osrm.org/route/v1/driving/${userLocation.lon},${userLocation.lat};${destLocation.lon},${destLocation.lat}?overview=full&geometries=geojson&steps=true`;
 
       try {
         const res = await fetch(url);
         const data = await res.json();
         if (!data.routes || !data.routes.length) {
-          showToast("Nessuna strada trovata.");
+          showToast("Nessun percorso trovato.");
           return;
         }
 
         activeRoute = data.routes[0];
 
-        // Carica la rotta nel layer WebGL
-        if (map.getSource('route-source')) {
-          map.getSource('route-source').setData({
-            type: 'Feature',
-            geometry: activeRoute.geometry
-          });
-        }
+        if (routeLayer) map.removeLayer(routeLayer);
+        // Traccia blu elettrico stile Renault Easy Link con trasparenza
+        routeLayer = L.geoJSON(activeRoute.geometry, {
+          style: { color: '#0072ce', weight: 7, opacity: 0.9, lineJoin: 'round' }
+        }).addTo(map);
 
-        // Inquadra percorso
-        const coords = activeRoute.geometry.coordinates;
-        const bounds = coords.reduce((b, coord) => b.extend(coord), new maplibregl.LngLatBounds(coords[0], coords[0]));
-        map.fitBounds(bounds, { padding: 80, pitch: 40 });
+        map.fitBounds(routeLayer.getBounds(), { padding: [60, 60] });
 
-        // Dati Footer
+        // Aggiorna Footer Easy Link
         const km = (activeRoute.distance / 1000).toFixed(1);
         const min = Math.round(activeRoute.duration / 60);
         document.getElementById('footer-km').innerText = `${km} km`;
@@ -903,11 +786,11 @@
 
         document.getElementById('nav-footer-easylink').style.display = 'flex';
       } catch (err) {
-        showToast("Errore di connessione.");
+        showToast("Errore di rete.");
       }
     }
 
-    // 5. GUIDA ATTIVA 3D AUTO-ZOOM A 3 STADI
+    // 4. Modalità Navigazione Renault Easy Link
     function avviaGuidaEasyLink() {
       if (!activeRoute) return;
       isNavigating = true;
@@ -929,8 +812,11 @@
       document.getElementById('search-panel').style.display = 'flex';
       document.getElementById('nav-header-easylink').style.display = 'none';
       document.getElementById('btn-start-drive').style.display = 'flex';
+      rimuoviFrecciaAsfalto();
+      if (routeLayer) map.fitBounds(routeLayer.getBounds(), { padding: [50, 50] });
     }
 
+    // 5. GESTIONE MAPPA A 3 FASI SECONDO IL MANUALE RENAULT EASY LINK
     function aggiornaGuidaEasyLink() {
       const steps = activeRoute.legs[0].steps;
       if (currentStepIndex >= steps.length) {
@@ -943,6 +829,7 @@
       const stepLoc = step.maneuver.location; // [lon, lat]
       const dist = distanzaMetri(userLocation.lat, userLocation.lon, stepLoc[1], stepLoc[0]);
 
+      // Avanzamento manovra se entro 20 metri dall'incrocio
       if (dist < 20 && currentStepIndex < steps.length - 1) {
         currentStepIndex++;
         const nextStep = steps[currentStepIndex];
@@ -952,37 +839,84 @@
         return;
       }
 
+      // Testo Distanza
       document.getElementById('maneuver-dist-val').innerText = dist > 1000 ? `${(dist/1000).toFixed(1)} km` : `${Math.round(dist)} m`;
       document.getElementById('maneuver-next-street').innerText = step.name || "Continua sul percorso";
 
+      // Barra di avanzamento progressiva
       const progressPercent = Math.max(0, Math.min(100, 100 - (dist / Math.max(initialStepDistance, 100)) * 100));
       document.getElementById('approach-fill').style.width = `${progressPercent}%`;
 
       const stageTag = document.getElementById('maneuver-stage-tag');
       const laneBox = document.getElementById('lane-guidance');
 
-      // AUTO-ZOOM 3D E STRATEGIA DI PROSPETTIVA
-      let targetZoom = 16;
+      // GESTIONE AUTOMATICA ZOOM E PROSPETTIVA A 3 FASI (Manuale Renault)
       if (dist > 350) {
-        targetZoom = userSpeedKmh > 75 ? 15 : 16;
-        stageTag.innerText = "Crociera 3D";
+        // --- STAGE 1: CROCIERA / PREPARAZIONE ---
+        // Auto-zoom basato su velocità veicolo:
+        // In autostrada ad alta velocità (es. > 80 km/h) zoom 15 per visuale lunga.
+        // A velocità urbana (es. < 50 km/h) zoom 16.
+        const targetZoom = userSpeedKmh > 70 ? 15 : 16;
+        if (map.getZoom() !== targetZoom) map.setZoom(targetZoom, { animate: true });
+
+        stageTag.innerText = "Crociera";
         stageTag.style.color = "var(--easylink-cyan)";
         laneBox.style.display = "none";
+        rimuoviFrecciaAsfalto();
+
       } else if (dist <= 350 && dist > 100) {
-        targetZoom = 17.2;
+        // --- STAGE 2: ALLERTA INCROCIO ---
+        // La mappa si avvicina progressivamente (Zoom 17)
+        if (map.getZoom() !== 17) map.setZoom(17, { animate: true });
+
         stageTag.innerText = "Allerta Svolta";
         stageTag.style.color = "#f59e0b";
-        laneBox.style.display = "flex";
+        laneBox.style.display = "flex"; // Mostra corsie consigliate
+        disegnaFrecciaAsfalto(stepLoc[1], stepLoc[0], step.maneuver.modifier);
+
       } else {
-        targetZoom = 18.5; // Zoom massimo sull'incrocio con gli edifici 3D attorno
+        // --- STAGE 3: MANOVRA IMMEDIATA ---
+        // Auto-zoom ravvicinato (Zoom 18) sull'incrocio, per vedere esattamente l'uscita o la curva
+        if (map.getZoom() !== 18) map.setZoom(18, { animate: true });
+
         stageTag.innerText = "Manovra";
         stageTag.style.color = "var(--easylink-green)";
         laneBox.style.display = "flex";
+        disegnaFrecciaAsfalto(stepLoc[1], stepLoc[0], step.maneuver.modifier);
       }
 
-      aggiornaTelecamera3D(targetZoom);
+      centraTelecameraEasyLink();
       aggiornaIconaManovraEasyLink(step);
       aggiornaNomeStradaAttuale(userLocation);
+    }
+
+    // Disegna la freccia luminosa dinamica sull'asfalto
+    function disegnaFrecciaAsfalto(lat, lon, modifier) {
+      let deg = 0;
+      if (modifier && modifier.includes('right')) deg = 90;
+      else if (modifier && modifier.includes('left')) deg = -90;
+
+      const html = `
+        <div class="easylink-junction-arrow" style="transform: rotate(${deg}deg);">
+          <svg width="54" height="54" viewBox="0 0 24 24" fill="none">
+            <path d="M12 3L12 21M12 3L5 10M12 3L19 10" stroke="#10b981" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+      `;
+      const icon = L.divIcon({ className: 'arrow-wrap', html, iconSize: [60,60], iconAnchor: [30,30] });
+
+      if (!junctionArrowMarker) {
+        junctionArrowMarker = L.marker([lat, lon], { icon }).addTo(map);
+      } else {
+        junctionArrowMarker.setLatLng([lat, lon]);
+      }
+    }
+
+    function rimuoviFrecciaAsfalto() {
+      if (junctionArrowMarker) {
+        map.removeLayer(junctionArrowMarker);
+        junctionArrowMarker = null;
+      }
     }
 
     function aggiornaIconaManovraEasyLink(step) {
@@ -1024,17 +958,18 @@
       else sign.innerText = "50";
     }
 
+    // Geocodifica inversa per mostrare la strada attuale in basso
     let lastStreetCheck = 0;
     async function aggiornaNomeStradaAttuale(loc) {
       const now = Date.now();
-      if (now - lastStreetCheck < 8000) return;
+      if (now - lastStreetCheck < 8000) return; // rate limit 8s
       lastStreetCheck = now;
       try {
         const res = await fetch(`https://photon.komoot.io/reverse?lon=${loc.lon}&lat=${loc.lat}`);
         const data = await res.json();
         if (data.features && data.features.length) {
           const p = data.features[0].properties;
-          const street = p.street || p.name || p.city || "Carreggiata";
+          const street = p.street || p.name || p.city || "Strada senza nome";
           document.getElementById('current-street-text').innerText = street;
         }
       } catch(e) {}
@@ -1048,10 +983,11 @@
       return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
     }
 
-    // 6. JOYSTICK VIRTUALE PER GUIDARE NEL VERO SPAZIO 3D
+    // 6. JOYSTICK VIRTUALE PER PROVARE IL SISTEMA
     const joyBase = document.getElementById('joystick-base');
     const joyKnob = document.getElementById('joystick-knob');
     let isDraggingJoy = false;
+    let isJoystickDriving = false;
     let joyX = 0, joyY = 0;
     let joyLoop = null;
 
@@ -1124,10 +1060,10 @@
 
         userLocation.lat += dLat;
         userLocation.lon += dLon;
-        userMarker.setLngLat([userLocation.lon, userLocation.lat]);
+        userMarker.setLatLng([userLocation.lat, userLocation.lon]);
 
         if (isNavigating) aggiornaGuidaEasyLink();
-        else aggiornaTelecamera3D();
+        else centraTelecameraEasyLink();
       }
 
       if (isDraggingJoy || Object.values(keys).some(k => k)) {
