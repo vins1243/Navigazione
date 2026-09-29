@@ -1188,12 +1188,12 @@
 
     async function calcolaPercorso() {
       showToast("Pianificazione in corso...");
-      let activeWaypoints = [];
+      let waypoints = [];
       let aiExplanation = "";
 
       const customPrompt = document.getElementById('ai-custom-prompt') ? document.getElementById('ai-custom-prompt').value.trim() : "";
 
-      // 1. Calcolo del percorso standard iniziale (prepercorso con OSRM)
+      // 1. Calcolo del percorso standard iniziale (baseline precalcolato con OSRM)
       let baselineRoute = null;
       try {
         const baseCoords = `${userLocation.lon},${userLocation.lat};${destLocation.lon},${destLocation.lat}`;
@@ -1204,7 +1204,7 @@
           baselineRoute = baseData.routes[0];
         }
       } catch (err) {
-        console.warn("Errore calcolo prepercorso OSRM:", err);
+        console.warn("Errore calcolo rotta base OSRM:", err);
       }
 
       if (!baselineRoute) {
@@ -1212,7 +1212,7 @@
         return;
       }
 
-      // Estrazione arterie utilizzate nel prepercorso
+      // Estrazione arterie e strade utilizzate nel percorso precalcolato
       const uniqueRoads = [];
       if (baselineRoute.legs && baselineRoute.legs[0] && baselineRoute.legs[0].steps) {
         baselineRoute.legs[0].steps.forEach(s => {
@@ -1225,131 +1225,139 @@
         });
       }
 
-      // Se non ci sono istruzioni AI specifiche, usa direttamente il prepercorso
-      if (!customPrompt) {
-        activeRoute = baselineRoute;
-        aggiornaMappaERisultati(activeRoute, "");
-        return;
-      }
+      // 2. Se l'utente ha inserito una richiesta AI, invia il percorso precalcolato per deviarlo
+      if (customPrompt) {
+        showToast("Consultazione OpenAI...");
+        const localKey = localStorage.getItem('user_openai_key') || '';
+        let aiSuccess = false;
 
-      // 2. Consultazione dell'IA passando il prepercorso per ottenere le strategie di aggiustamento
-      showToast("Analisi IA e generazione scenari ottimali...");
-      const localKey = localStorage.getItem('user_openai_key') || '';
-      let proposals = [];
-
-      try {
-        const headers = { 'Content-Type': 'application/json' };
-        if (localKey) headers['Authorization'] = `Bearer ${localKey}`;
-
-        const aiRes = await fetch('/api/plan', {
-          method: 'POST',
-          headers: headers,
-          body: JSON.stringify({
-            origin: { lat: userLocation.lat, lon: userLocation.lon, name: "La mia posizione" },
-            destination: destLocation,
-            preferences: customPrompt,
-            baseline_route: {
-              distance_km: (baselineRoute.distance / 1000).toFixed(1),
-              duration_min: Math.round(baselineRoute.duration / 60),
-              roads: uniqueRoads
-            }
-          })
-        });
-
-        if (aiRes.ok) {
-          const aiData = await aiRes.json();
-          if (aiData.spiegazione) aiExplanation = aiData.spiegazione;
-          if (aiData.proposte && Array.isArray(aiData.proposte) && aiData.proposte.length > 0) {
-            proposals = aiData.proposte;
-          } else if (aiData.via_points && Array.isArray(aiData.via_points) && aiData.via_points.length > 0) {
-            proposals = [{ nome: "Deviazione AI", descrizione: aiData.spiegazione || "", via_points: aiData.via_points }];
-          }
-        } else {
-          let errorDetail = "HTTP " + aiRes.status;
-          try {
-            const err = await aiRes.json();
-            if (err && err.error) errorDetail = err.error;
-          } catch (_) {
-            const txt = await aiRes.text().catch(() => "");
-            if (txt) errorDetail += ": " + txt.slice(0, 60);
-          }
-          console.warn("Server /api/plan error:", errorDetail);
-          if (!localKey) showToast("⚠️ " + errorDetail);
-        }
-      } catch (e) {
-        console.warn("Chiamata /api/plan fallita:", e);
-        if (!localKey) showToast("⚠️ Errore connessione /api/plan");
-      }
-
-      // Fallback diretto client-side se il server fallisce ed è presente una chiave locale
-      if (proposals.length === 0 && localKey) {
+        // Prova prima l'endpoint serverless /api/plan
         try {
-          showToast("Consultazione OpenAI diretta client-side...");
-          const directRes = await fetch("https://api.openai.com/v1/chat/completions", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${localKey}`
-            },
+          const headers = { 'Content-Type': 'application/json' };
+          if (localKey) headers['Authorization'] = `Bearer ${localKey}`;
+
+          const aiRes = await fetch('/api/plan', {
+            method: 'POST',
+            headers: headers,
             body: JSON.stringify({
-              model: "gpt-4o-mini",
-              messages: [
-                {
-                  role: "system",
-                  content: "Sei un ingegnere stradale automobilistico. Genera 1 o 2 proposte con waypoints mirati per soddisfare la preferenza del guidatore evitando allunghi assurdi. Rispondi in JSON: { \"spiegazione\": \"...\", \"proposte\": [ { \"nome\": \"...\", \"via_points\": [ { \"nome\": \"...\", \"lat\": 40.5, \"lon\": 17.1 } ] } ] }"
-                },
-                {
-                  role: "user",
-                  content: `Partenza: ${JSON.stringify(userLocation)}, Destinazione: ${JSON.stringify(destLocation)}, Strade attuali: ${uniqueRoads.join(', ')}, Richiesta: "${customPrompt}"`
-                }
-              ],
-              response_format: { type: "json_object" },
-              temperature: 0.2
+              origin: { lat: userLocation.lat, lon: userLocation.lon, name: "La mia posizione" },
+              destination: destLocation,
+              preferences: customPrompt,
+              baseline_route: {
+                distance_km: (baselineRoute.distance / 1000).toFixed(1),
+                duration_min: Math.round(baselineRoute.duration / 60),
+                roads: uniqueRoads
+              }
             })
           });
 
-          if (directRes.ok) {
-            const directData = await directRes.json();
-            const parsed = JSON.parse(directData.choices[0].message.content);
-            if (parsed.spiegazione) aiExplanation = parsed.spiegazione;
-            if (parsed.proposte && Array.isArray(parsed.proposte)) proposals = parsed.proposte;
-            else if (parsed.via_points && Array.isArray(parsed.via_points)) proposals = [{ nome: "Deviazione AI", via_points: parsed.via_points }];
+          if (aiRes.ok) {
+            const aiData = await aiRes.json();
+            if (aiData.via_points && Array.isArray(aiData.via_points) && aiData.via_points.length > 0) {
+              const dTot = distanzaMetri(userLocation.lat, userLocation.lon, destLocation.lat, destLocation.lon);
+              waypoints = aiData.via_points.map(w => ({
+                lat: parseFloat(w.lat !== undefined ? w.lat : w.latitude),
+                lon: parseFloat(w.lon !== undefined ? w.lon : (w.lng !== undefined ? w.lng : w.longitude)),
+                nome: w.nome || w.name || "Punto via"
+              })).filter(w => {
+                if (isNaN(w.lat) || isNaN(w.lon)) return false;
+                const dStart = distanzaMetri(userLocation.lat, userLocation.lon, w.lat, w.lon);
+                const dEnd = distanzaMetri(w.lat, w.lon, destLocation.lat, destLocation.lon);
+                // Scarta punti che tornano indietro (allungano la distanza dalla meta) o che deviano oltre il 40%
+                return (dStart + dEnd) <= dTot * 1.45 && dEnd < dTot;
+              }).sort((a, b) => {
+                // Ordina lungo il senso di marcia progressivo (dalla partenza all'arrivo)
+                const da = distanzaMetri(userLocation.lat, userLocation.lon, a.lat, a.lon);
+                const db = distanzaMetri(userLocation.lat, userLocation.lon, b.lat, b.lon);
+                return da - db;
+              });
+
+              showToast(`🎯 L'IA ha applicato ${waypoints.length} tappe per deviare il percorso`);
+            } else {
+              showToast("ℹ️ L'IA conferma la rotta ottimale");
+            }
+            if (aiData.spiegazione) {
+              aiExplanation = aiData.spiegazione;
+            }
+            aiSuccess = true;
+          } else {
+            let errorDetail = "HTTP " + aiRes.status;
+            try {
+              const err = await aiRes.json();
+              if (err && err.error) errorDetail = err.error;
+            } catch (_) {
+              const txt = await aiRes.text().catch(() => "");
+              if (txt) errorDetail += ": " + txt.slice(0, 60);
+            }
+            console.warn("Server /api/plan error:", errorDetail);
+            if (!localKey) {
+              showToast("⚠️ " + errorDetail);
+            }
           }
-        } catch (dErr) {
-          console.warn("Chiamata diretta OpenAI fallita:", dErr);
+        } catch (e) {
+          console.warn("Chiamata /api/plan fallita:", e);
+          if (!localKey) {
+            showToast("⚠️ Errore connessione /api/plan");
+          }
+        }
+
+        // Fallback diretto su OpenAI client-side se il server fallisce ed è presente la chiave locale
+        if (!aiSuccess && localKey) {
+          try {
+            showToast("Consultazione OpenAI diretta client-side...");
+            const directRes = await fetch("https://api.openai.com/v1/chat/completions", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${localKey}`
+              },
+              body: JSON.stringify({
+                model: "gpt-4o-mini",
+                messages: [
+                  {
+                    role: "system",
+                    content: "Sei un ingegnere esperto di navigazione stradale per percorsi in Italia ed Europa a supporto del motore OSRM. Se l'utente chiede 'evita autostrade', DEVI generare da 3 a 5 waypoints intermedi ben distribuiti lungo le Strade Statali (es. SS16, SS106, SS18, SS1, SS9) in centri abitati distanti dai caselli. Rispondi con JSON: { \"spiegazione\": \"...\", \"via_points\": [ { \"nome\": \"...\", \"lat\": 40.1, \"lon\": 16.5 } ] }"
+                  },
+                  {
+                    role: "user",
+                    content: `DATI VIAGGIO:\n- Partenza: ${JSON.stringify(userLocation)}\n- Destinazione: ${JSON.stringify(destLocation)}\n- Strade attuali precalcolate: ${uniqueRoads.join(', ')}\n- RICHIESTA GUIDATORE: "${customPrompt}"`
+                  }
+                ],
+                response_format: { type: "json_object" },
+                temperature: 0.2
+              })
+            });
+
+            if (directRes.ok) {
+              const directData = await directRes.json();
+              const parsed = JSON.parse(directData.choices[0].message.content);
+              if (parsed.via_points && Array.isArray(parsed.via_points) && parsed.via_points.length > 0) {
+                waypoints = parsed.via_points.map(w => ({
+                  lat: parseFloat(w.lat !== undefined ? w.lat : w.latitude),
+                  lon: parseFloat(w.lon !== undefined ? w.lon : (w.lng !== undefined ? w.lng : w.longitude)),
+                  nome: w.nome || w.name || "Punto via"
+                })).filter(w => !isNaN(w.lat) && !isNaN(w.lon));
+                showToast(`🎯 L'IA (diretta) ha applicato ${waypoints.length} tappe per deviare il percorso`);
+              }
+              if (parsed.spiegazione) {
+                aiExplanation = parsed.spiegazione;
+              }
+            } else {
+              const dErr = await directRes.json().catch(() => ({}));
+              showToast("⚠️ OpenAI: " + (dErr.error?.message || directRes.statusText));
+            }
+          } catch (directErr) {
+            console.warn("Chiamata diretta OpenAI fallita:", directErr);
+            showToast("⚠️ Errore chiamata OpenAI diretta");
+          }
         }
       }
 
-      // 3. Esecuzione dei tentativi e benchmarking (Calcolo e confronto multi-rotta in parallelo)
-      const dTot = distanzaMetri(userLocation.lat, userLocation.lon, destLocation.lat, destLocation.lon);
-      const baselineKm = baselineRoute.distance / 1000;
-      const baselineMin = baselineRoute.duration / 60;
-
-      // Sanitizzazione geometrica di ciascuna proposta
-      const evaluatedCandidates = await Promise.all(proposals.map(async (prop) => {
-        const rawPoints = prop.via_points || [];
-        const cleanPoints = rawPoints.map(w => ({
-          lat: parseFloat(w.lat !== undefined ? w.lat : w.latitude),
-          lon: parseFloat(w.lon !== undefined ? w.lon : (w.lng !== undefined ? w.lng : w.longitude)),
-          nome: w.nome || w.name || "Punto via"
-        })).filter(w => {
-          if (isNaN(w.lat) || isNaN(w.lon)) return false;
-          const dStart = distanzaMetri(userLocation.lat, userLocation.lon, w.lat, w.lon);
-          const dEnd = distanzaMetri(w.lat, w.lon, destLocation.lat, destLocation.lon);
-          // Scarta punti che tornano indietro (allungano la distanza dalla meta) o che deviano oltre il 35%
-          return (dStart + dEnd) <= dTot * 1.35 && dEnd < dTot;
-        }).sort((a, b) => {
-          // Ordina lungo il senso di marcia progressivo (dalla partenza all'arrivo)
-          const da = distanzaMetri(userLocation.lat, userLocation.lon, a.lat, a.lon);
-          const db = distanzaMetri(userLocation.lat, userLocation.lon, b.lat, b.lon);
-          return da - db;
-        });
-
-        if (cleanPoints.length === 0) return null;
-
+      // 3. Se l'AI ha fornito waypoints per modificare il percorso, ricalcoliamo con OSRM
+      if (waypoints.length > 0) {
         const allPoints = [
           { lon: userLocation.lon, lat: userLocation.lat },
-          ...cleanPoints.map(w => ({ lon: w.lon, lat: w.lat })),
+          ...waypoints.map(w => ({ lon: w.lon, lat: w.lat })),
           { lon: destLocation.lon, lat: destLocation.lat }
         ];
         const coordsString = allPoints.map(p => `${p.lon},${p.lat}`).join(';');
@@ -1359,92 +1367,24 @@
           const res = await fetch(url);
           const data = await res.json();
           if (data.routes && data.routes.length) {
-            const candRoute = data.routes[0];
-            const candKm = candRoute.distance / 1000;
-            const candMin = candRoute.duration / 60;
-
-            // Estrazione strade della candidata
-            const candRoads = [];
-            if (candRoute.legs && candRoute.legs[0] && candRoute.legs[0].steps) {
-              candRoute.legs[0].steps.forEach(s => {
-                const r = [s.ref, s.name].filter(Boolean).join(" ");
-                if (r && !candRoads.includes(r)) candRoads.push(r);
-              });
-            }
-
-            return {
-              prop: prop,
-              waypoints: cleanPoints,
-              route: candRoute,
-              km: candKm,
-              min: candMin,
-              roads: candRoads
-            };
+            activeRoute = data.routes[0];
+          } else {
+            activeRoute = baselineRoute;
           }
-        } catch (e) {
-          console.warn("Errore test scenario OSRM:", e);
+        } catch (err) {
+          console.warn("Errore ricalcolo OSRM con waypoints:", err);
+          activeRoute = baselineRoute;
         }
-        return null;
-      }));
-
-      const validCandidates = evaluatedCandidates.filter(Boolean);
-
-      // 4. Algoritmo di decisione: sceglie il connubio ottimale tra rispetto preferenza, qualità strade, tempi e km
-      const prefLower = customPrompt.toLowerCase();
-      const wantsHighway = (prefLower.includes("autostrad") || prefLower.includes("veloce") || prefLower.includes("comfort")) &&
-                           !prefLower.includes("evita") && !prefLower.includes("no pedagg") && !prefLower.includes("senza");
-      const wantsNoHighway = prefLower.includes("evita") || prefLower.includes("no pedagg") || prefLower.includes("senza pedagg") || prefLower.includes("solo statal");
-
-      let bestChoice = null;
-      let bestScore = -Infinity;
-
-      validCandidates.forEach(cand => {
-        let score = 100;
-        const hasMotorway = cand.roads.some(r => /\bA\d+\b/i.test(r) || /autostrada/i.test(r));
-
-        if (wantsNoHighway) {
-          if (!hasMotorway) score += 60; // Rispetta appieno il no pedaggi
-          else score -= 80;
-        } else if (wantsHighway) {
-          if (hasMotorway) score += 70;  // Rispetta la preferenza autostradale
-          else score -= 30;
-        }
-
-        // Penalizza allunghi chilometrici ingiustificati
-        const kmDiff = cand.km - baselineKm;
-        if (kmDiff > 10) score -= (kmDiff / baselineKm) * 120;
-
-        // Penalizza tempi eccessivi
-        const minDiff = cand.min - baselineMin;
-        if (minDiff > 15) score -= (minDiff / baselineMin) * 100;
-
-        if (score > bestScore) {
-          bestScore = score;
-          bestChoice = cand;
-        }
-      });
-
-      // Se una candidata è stata validata con successo ed è soddisfacente
-      if (bestChoice && (bestScore > 40 || (wantsNoHighway && !bestChoice.roads.some(r => /\bA\d+\b/i.test(r))))) {
-        activeRoute = bestChoice.route;
-        activeWaypoints = bestChoice.waypoints;
-        const note = bestChoice.prop.nome || "Ottimizzazione applicata";
-        showToast(`🎯 Rotta ottimizzata: ${note} (${bestChoice.km.toFixed(1)} km, ${Math.round(bestChoice.min)} min)`);
       } else {
-        // Altrimenti mantieni il prepercorso come opzione migliore
         activeRoute = baselineRoute;
-        showToast("ℹ️ Mantenuto il percorso ottimale standard: il migliore per tempi e chilometri.");
       }
 
-      aggiornaMappaERisultati(activeRoute, aiExplanation);
-    }
-
-    function aggiornaMappaERisultati(rotta, spiegazione) {
+      // 4. Renderizzazione e aggiornamento interfaccia
       try {
         const aiBanner = document.getElementById('ai-rationale-banner');
         const aiText = document.getElementById('ai-rationale-text');
-        if (spiegazione) {
-          aiText.innerText = spiegazione;
+        if (aiExplanation) {
+          aiText.innerText = aiExplanation;
           aiBanner.style.display = 'block';
         } else {
           aiBanner.style.display = 'none';
@@ -1453,21 +1393,21 @@
         if (map.getSource('route-source')) {
           map.getSource('route-source').setData({
             type: 'Feature',
-            geometry: rotta.geometry
+            geometry: activeRoute.geometry
           });
         }
 
-        const coords = rotta.geometry.coordinates;
+        const coords = activeRoute.geometry.coordinates;
         const bounds = coords.reduce((b, coord) => b.extend(coord), new maplibregl.LngLatBounds(coords[0], coords[0]));
         map.fitBounds(bounds, { padding: 80, pitch: 20 });
 
-        const km = (rotta.distance / 1000).toFixed(1);
-        const min = Math.round(rotta.duration / 60);
+        const km = (activeRoute.distance / 1000).toFixed(1);
+        const min = Math.round(activeRoute.duration / 60);
         document.getElementById('footer-km').innerText = `${km} km`;
         document.getElementById('footer-min').innerText = `${min} min`;
 
         const eta = new Date();
-        eta.setSeconds(eta.getSeconds() + rotta.duration);
+        eta.setSeconds(eta.getSeconds() + activeRoute.duration);
         document.getElementById('footer-eta').innerText = eta.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
         document.getElementById('nav-footer-easylink').style.display = 'flex';
@@ -1475,6 +1415,7 @@
         showToast("Errore di rendering rotta.");
       }
     }
+
     // 5. GUIDA ATTIVA CON CAMBIO PROSPETTIVA LEGATO ALLO ZOOM
     function avviaGuidaEasyLink() {
       if (!activeRoute) return;

@@ -1,3 +1,6 @@
+// Cloudflare Pages Function: /api/plan
+// Esegue l'ottimizzazione intelligente del viaggio con OpenAI GPT-4o-mini generando scenari ottimali
+
 export async function onRequestOptions() {
   return new Response(null, {
     status: 204,
@@ -18,7 +21,7 @@ export async function onRequestPost(context) {
   if (!apiKey) {
     return new Response(
       JSON.stringify({
-        error: "OPENAI_API_KEY non trovata nelle variabili d'ambiente di Cloudflare Pages."
+        error: "OPENAI_API_KEY non trovata nelle variabili d'ambiente di Cloudflare Pages. Puoi anche inserirla dall'icona chiave 🔑 nell'app."
       }),
       {
         status: 500,
@@ -47,54 +50,62 @@ export async function onRequestPost(context) {
       );
     }
 
-    const systemPrompt = `Sei un ingegnere esperto di navigazione stradale e logistica automobilistica per percorsi in auto in Italia ed Europa a supporto del motore cartografico OSRM.
-Il tuo compito è analizzare la richiesta del guidatore e il percorso precalcolato, inserendo i waypoints necessari per rispettare le preferenze SENZA MAI FARE ALLUNGHI O GIRI INUTILI.
+    const systemPrompt = `Sei un ingegnere e copilota esperto di navigazione e logistica stradale automobilistica per percorsi in Italia ed Europa a supporto del motore cartografico OSRM.
+Il tuo obiettivo è individuare il PERCORSO OTTIMALE: il perfetto connubio tra la richiesta del guidatore, la migliore qualità delle strade (asfalto, carreggiate ampie e sicure), tempi di percorrenza brevi e chilometri contenuti, EVITANDO ASSOLUTAMENTE allunghi o deviazioni montane assurde.
 
-PRINCIPI GUIDA FONDAMENTALI:
-1. PROGRESSIONE LINEARE IN AVANTI (DIVIETO ASSOLUTO DI RETROMARCIA O ANELLI):
-   - I waypoints DEVONO trovarsi sempre strettamente lungo la direttrice di marcia tra Partenza e Destinazione.
-   - Non inserire MAI punti che si trovino "alle spalle" della partenza o oltre la destinazione.
-   - Ordina sempre i waypoints in modo rigorosamente cronologico lungo il senso di marcia (dal più vicino alla partenza al più vicino all'arrivo).
-   - Non fare MAI deviazioni a zig-zag o anelli montani assurdi.
+REGOLE CRUCIALI PER LE STRATEGIE:
 
-2. SE L'UTENTE CHIEDE "EVITA AUTOSTRADE" / "NO PEDAGGI":
-   - L'obiettivo è NON PAGARE IL PEDAGGIO delle autostrade (tratte 'A', es. A14, A16, A1, ecc.), mantenendo la rotta ordinaria più DIRETTA, FLUIDA ed EFFICIENTE possibile.
-   - NON evitare le Strade Provinciali (SP) o Statali (SS) scorrevoli: sono la via corretta per non pagare il pedaggio.
-   - Inserisci da 2 a 3 waypoints strategici posizionati sui nodi delle principali arterie ordinarie alternative (es. SS106 Jonica, SS16 Adriatica, SS7, SS96, SS658, SP principali) esattamente nei punti in cui OSRM tenderebbe a imboccare l'autostrada a pedaggio.
-   - Esempio: se da Francavilla Marittima si viaggia verso nord/Puglia, il percorso senza pedaggio sale dritto sulla SS106 Jonica e poi taglia via Statali/Provinciali interne (es. Metaponto, Matera, Altamura, Cerignola, Foggia) SENZA scendere verso sud in Calabria!
+1. COMPRENSIONE INTELLIGENTE DEI CORRIDOI:
+   - SE L'UTENTE CHIEDE "PREDILIGI AUTOSTRADA" / "SOLO AUTOSTRADA":
+     * Individua il corridoio a scorrimento veloce/autostradale principale NATURALE.
+     * Esempio (Calabria/Ionio -> Puglia/Gargano): NON attraversare le montagne della Basilicata/Appennino per prendere l'A2 a ovest! Il corridoio logico e naturale è salire sulla SS106 Jonica (superstrada a 4 corsie) fino allo snodo autostradale di Taranto Nord, imboccando l'Autostrada A14 Adriatica diretta verso Bari, Barletta, Cerignola e Foggia.
+     * I waypoint devono convogliare il veicolo sull'arteria autostradale principale più scorrevole, evitando passi montani tortuosi o statali secondarie.
 
-3. SE L'UTENTE CHIEDE "SOLO AUTOSTRADA" / "PREDILIGI AUTOSTRADA":
-   - Inserisci waypoints sui caselli o raccordi autostradali principali per forzare il viaggio a corsie separate.
+   - SE L'UTENTE CHIEDE "EVITA AUTOSTRADE" / "NO PEDAGGI":
+     * L'obiettivo è NON PAGARE IL PEDAGGIO delle autostrade (tratte con lettera 'A', es. A14, A16, A1), mantenendo la viabilità ordinaria più DIRETTA, FLUIDA ed EFFICIENTE possibile.
+     * NON evitare le Strade Provinciali (SP) o Statali (SS) scorrevoli e veloci: sono la via corretta per non pagare il pedaggio.
+     * Inserisci 2-3 punti lungo la direttrice statale principale (es. SS106, SS96, SS16, SS658) che bypassano i caselli senza allungare inutilmente.
 
-4. SE L'UTENTE CHIEDE "PANORAMICO":
-   - Scegli tappe lungo litoranee o laghi, ma sempre avanzando linearmente verso la destinazione.
+2. PROGRESSIONE LINEARE IN AVANTI (DIVIETO ASSOLUTO DI RETROMARCIA O ANELLI):
+   - I punti devono avanzare SEMPRE e solo in avanti verso la destinazione lungo la direttrice naturale.
+   - Vietati anelli, tornanti a ritroso, o deviazioni di decine di km fuori asse.
 
-5. SE LA RICHIESTA È GIÀ SODDISFATTA:
-   - Restituisci via_points vuoto [].
+3. TENTATIVI E VARIANTI MULTIPLE (Per permettere al navigatore di calcolare e scegliere la migliore):
+   - Devi fornire un array "proposte" con 1 o 2 strategie candidate differenti (es. opzione autostradale primaria, opzione bilanciata, opzione alternativa).
+   - Per ciascuna strategia fornisci da 1 a 3 waypoints mirati con coordinate precise.
 
-DEVI RISPONDERE TASSATIVAMENTE ED ESCLUSIVAMENTE CON UN OGGETTO JSON con questa struttura esatta:
+RISPONDI TASSATIVAMENTE ED ESCLUSIVAMENTE CON UN OGGETTO JSON con questa struttura esatta:
 {
-  "spiegazione": "Descrizione sintetica del percorso senza pedaggi impostato sulle statali/provinciali più dirette.",
-  "via_points": [
+  "spiegazione": "Sintesi chiara della strategia migliore individuata e del perché rappresenta il miglior connubio tra strade, tempi e km",
+  "proposte": [
     {
-      "nome": "Località o snodo stradale ordinario",
-      "lat": 40.1234,
-      "lon": 16.5678
+      "nome": "Titolo breve della strategia (es. Autostrada A14 Adriatica veloce, o Statale SS106 senza pedaggi)",
+      "descrizione": "Spiegazione sintetica della rotta e delle arterie scelte",
+      "via_points": [
+        {
+          "nome": "Nome casello, snodo o località strategica",
+          "lat": 40.5432,
+          "lon": 17.1234
+        }
+      ]
     }
   ]
 }`;
 
     let baselineDesc = "";
     if (baseline_route && baseline_route.roads && baseline_route.roads.length > 0) {
-      baselineDesc = `\n- Percorso attualmente precalcolato dal navigatore:\n  * Distanza: ${baseline_route.distance_km || '--'} km\n  * Durata: ${baseline_route.duration_min || '--'} min\n  * Strade attualmente usate: ${baseline_route.roads.join(', ')}`;
+      baselineDesc = `\n- Percorso precalcolato iniziale dal navigatore:
+  * Distanza: ${baseline_route.distance_km || '--'} km
+  * Durata: ${baseline_route.duration_min || '--'} min
+  * Strade attualmente usate: ${baseline_route.roads.join(', ')}`;
     }
 
     const userPrompt = `DATI DI VIAGGIO:
 - Partenza: ${JSON.stringify(origin)}
 - Destinazione: ${JSON.stringify(destination)}${baselineDesc}
-- RICHIESTA GUIDATORE: "${preferences || 'Nessuna preferenza'}"
+- RICHIESTA GUIDATORE: "${preferences || 'Percorso migliore bilanciato'}"
 
-Calcola i via_points necessari per garantire che il navigatore OSRM segua fedelmente la preferenza richiesta (soprattutto se richiede di evitare o forzare autostrade).`;
+Genera le proposte di waypoints ottimali tenendo conto di tempi brevi, chilometri contenuti e qualità delle strade.`;
 
     const openAiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
