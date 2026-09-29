@@ -1328,7 +1328,9 @@
       // Sanitizzazione geometrica di ciascuna proposta
       const evaluatedCandidates = await Promise.all(proposals.map(async (prop) => {
         const rawPoints = prop.via_points || [];
-        // Nessun blocco artificiale sui km iniziali/finali: i punti possono trovarsi a qualsiasi distanza
+        // Buffer di sicurezza: esclude waypoints nei primi 25 km e negli ultimi 25 km (evita vicoli ciechi o stradine poderali)
+        const minBuffer = Math.min(25000, dTot * 0.15);
+
         const cleanPoints = rawPoints.map(w => ({
           lat: parseFloat(w.lat !== undefined ? w.lat : w.latitude),
           lon: parseFloat(w.lon !== undefined ? w.lon : (w.lng !== undefined ? w.lng : w.longitude)),
@@ -1338,11 +1340,11 @@
           const dStart = distanzaMetri(userLocation.lat, userLocation.lon, w.lat, w.lon);
           const dEnd = distanzaMetri(w.lat, w.lon, destLocation.lat, destLocation.lon);
           
-          // Esclude solo punti coincidenti (entro 200m) dalla partenza o destinazione
-          if (dStart < 200 || dEnd < 200) return false;
+          // Scarta categoricamente punti troppo vicini alla partenza o all'arrivo
+          if (dStart < minBuffer || dEnd < minBuffer) return false;
 
-          // Scarta punti che vanno all'indietro (aumentano la distanza dalla meta rispetto alla partenza) o che provocano allunghi abnormi
-          return (dStart + dEnd) <= dTot * 1.35 && dEnd < dTot;
+          // Scarta punti che tornano indietro (allungano la distanza dalla meta) o che deviano oltre il 30%
+          return (dStart + dEnd) <= dTot * 1.30 && dEnd < dTot;
         }).sort((a, b) => {
           // Ordina lungo il senso di marcia progressivo (dalla partenza all'arrivo)
           const da = distanzaMetri(userLocation.lat, userLocation.lon, a.lat, a.lon);

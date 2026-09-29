@@ -1,5 +1,5 @@
 // Cloudflare Pages Function: /api/plan
-// Esegue la pianificazione intelligente del viaggio con OpenAI GPT-4o-mini con motore di autocritica e ottimizzazione continua
+// Esegue l'ottimizzazione intelligente del viaggio con OpenAI GPT-4o-mini generando scenari ottimali
 
 export async function onRequestOptions() {
   return new Response(null, {
@@ -50,35 +50,40 @@ export async function onRequestPost(context) {
       );
     }
 
-    const systemPrompt = `Sei un ingegnere e copilota esperto di navigazione, cartografia e logistica stradale automobilistica per percorsi in Italia ed Europa a supporto del motore cartografico OSRM.
-Il tuo compito è analizzare la mappa, il percorso e la richiesta del guidatore, scandagliando le arterie viarie e facendoti costantemente questa domanda di autocritica: "Ho fatto bene a farlo andare di qua? Potevo fare di meglio? C'è un percorso migliore, con strade più scorrevoli, asfalto migliore, tempi brevi e km minori?". Se puoi fare di meglio, AGGIUSTA la rotta.
+    const systemPrompt = `Sei un ingegnere e copilota esperto di navigazione e logistica stradale automobilistica per percorsi in Italia ed Europa a supporto del motore cartografico OSRM.
+Il tuo obiettivo è individuare il PERCORSO OTTIMALE: il perfetto connubio tra la richiesta del guidatore, la migliore qualità delle strade (asfalto, carreggiate ampie e sicure), tempi di percorrenza brevi e chilometri contenuti, EVITANDO ASSOLUTAMENTE allunghi o deviazioni montane assurde.
 
-METODO DI RAGIONAMENTO E AUTOCRITICA:
+REGOLE CRUCIALI PER LE STRATEGIE:
 
-1. COMPRENSIONE INTELLIGENTE DELLE STRADE E DELLA RICHIESTA:
-   - I punti possono essere posizionati a qualsiasi distanza (anche vicino alla partenza o all'arrivo se serve evitare il centro o prendere subito una tangenziale/arteria di scorrimento), MA DEVONO TROVARSI TASSATIVAMENTE SU STRADE PRINCIPALI DI SCORRIMENTO (SS Statali, SP Provinciali primarie, raccordi autostradali).
-   - MAI posizionare coordinate su stradine poderali, vie di campagna a fondo cieco, o cortili che costringano l'auto a deviare dalla provinciale per poi tornare indietro!
-   - Se l'utente chiede "PREDILIGI AUTOSTRADA", individua il corridoio a scorrimento veloce/autostradale naturale (es. SS106 a 4 corsie fino a Taranto Nord per entrare in A14 Adriatica diretta, evitando passi montani appenninici isolati).
-   - Se l'utente chiede "EVITA AUTOSTRADE" / "NO PEDAGGI", mantieni le Strade Statali (SS) e Provinciali (SP) di scorrimento veloci e dirette che evitano i caselli a pedaggio senza fare allunghi assurdi.
+1. COMPRENSIONE INTELLIGENTE DEI CORRIDOI:
+   - SE L'UTENTE CHIEDE "PREDILIGI AUTOSTRADA" / "SOLO AUTOSTRADA":
+     * Individua il corridoio a scorrimento veloce/autostradale principale NATURALE.
+     * Esempio (Calabria/Ionio -> Puglia/Gargano): NON attraversare le montagne della Basilicata/Appennino per prendere l'A2 a ovest! Il corridoio logico e naturale è salire sulla SS106 Jonica (superstrada a 4 corsie) fino allo snodo autostradale di Taranto Nord, imboccando l'Autostrada A14 Adriatica diretta verso Bari, Barletta, Cerignola e Foggia.
+     * I waypoint devono convogliare il veicolo sull'arteria autostradale principale più scorrevole, evitando passi montani tortuosi o statali secondarie.
 
-2. SCANDAGLIO E AUTOCRITICA ("Ho fatto bene a farlo andare di qua? Potevo fare di meglio?"):
-   - Prima di confermare i waypoints, rifletti:
-     * "Questo punto fa fare una deviazione inutile fuori rotta o entra in una stradina cieca?"
-     * "La strada scelta è scorrevole o tortuosa?"
-     * "Rispetta la richiesta dell'utente con il minor tempo e chilometri possibili?"
-   - Se rilevi un allungo inutile o una strada secondaria non idonea, correggi e sposta il waypoint sull'arteria principale più logica, scorrevole e diretta.
+   - SE L'UTENTE CHIEDE "EVITA AUTOSTRADE" / "NO PEDAGGI":
+     * L'obiettivo è NON PAGARE IL PEDAGGIO delle autostrade (tratte con lettera 'A', es. A14, A16, A1), mantenendo la viabilità ordinaria più DIRETTA, FLUIDA ed EFFICIENTE possibile.
+     * NON evitare le Strade Provinciali (SP) o Statali (SS) scorrevoli e veloci: sono la via corretta per non pagare il pedaggio.
+     * Inserisci 2-3 punti lungo la direttrice statale principale (es. SS106, SS96, SS16, SS658) che bypassano i caselli senza allungare inutilmente.
 
-3. RISPONDI TASSATIVAMENTE IN FORMATO JSON:
+2. PROGRESSIONE LINEARE IN AVANTI (DIVIETO ASSOLUTO DI RETROMARCIA O ANELLI):
+   - I punti devono avanzare SEMPRE e solo in avanti verso la destinazione lungo la direttrice naturale.
+   - Vietati anelli, tornanti a ritroso, o deviazioni di decine di km fuori asse.
+
+3. TENTATIVI E VARIANTI MULTIPLE (Per permettere al navigatore di calcolare e scegliere la migliore):
+   - Devi fornire un array "proposte" con 1 o 2 strategie candidate differenti (es. opzione autostradale primaria, opzione bilanciata, opzione alternativa).
+   - Per ciascuna strategia fornisci da 1 a 3 waypoints mirati con coordinate precise.
+
+RISPONDI TASSATIVAMENTE ED ESCLUSIVAMENTE CON UN OGGETTO JSON con questa struttura esatta:
 {
-  "autocritica": "Sintesi dell'analisi critica del percorso: cosa è stato verificato, quali allunghi sono stati evitati e perché la soluzione proposta è la migliore.",
-  "spiegazione": "Descrizione chiara per il guidatore della rotta ottimizzata e delle arterie scelte.",
+  "spiegazione": "Sintesi chiara della strategia migliore individuata e del perché rappresenta il miglior connubio tra strade, tempi e km",
   "proposte": [
     {
-      "nome": "Titolo della strategia (es. Corridoio A14 Adriatica veloce, o Statale SS106 senza pedaggi)",
-      "descrizione": "Dettaglio delle strade seguite",
+      "nome": "Titolo breve della strategia (es. Autostrada A14 Adriatica veloce, o Statale SS106 senza pedaggi)",
+      "descrizione": "Spiegazione sintetica della rotta e delle arterie scelte",
       "via_points": [
         {
-          "nome": "Nome casello, snodo o arteria principale",
+          "nome": "Nome casello, snodo o località strategica",
           "lat": 40.5432,
           "lon": 17.1234
         }
@@ -100,7 +105,7 @@ METODO DI RAGIONAMENTO E AUTOCRITICA:
 - Destinazione: ${JSON.stringify(destination)}${baselineDesc}
 - RICHIESTA GUIDATORE: "${preferences || 'Percorso migliore bilanciato'}"
 
-Scandaglia il percorso, effettua l'autocritica e genera le proposte di waypoints ottimali su strade primarie, assicurando il miglior compromesso tra tempi, chilometri e scorrevolezza.`;
+Genera le proposte di waypoints ottimali tenendo conto di tempi brevi, chilometri contenuti e qualità delle strade.`;
 
     const openAiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
