@@ -1080,11 +1080,9 @@
       activeRoute = null;
     }
 
-    // 4. SELEZIONE DESTINAZIONE (Avvia subito il calcolo del percorso)
+    // 4. SELEZIONE DESTINAZIONE (Non calcola subito: apre prima le preferenze AI)
     async function impostaDestinazione(lat, lon, label) {
       destLocation = { lat, lon, name: label };
-      if (searchInput) searchInput.value = label;
-      if (resultsBox) resultsBox.style.display = 'none';
       if (destMarker) destMarker.remove();
 
       const el = document.createElement('div');
@@ -1093,12 +1091,12 @@
                       </div>`;
       destMarker = new maplibregl.Marker({ element: el }).setLngLat([lon, lat]).addTo(map);
 
-      // Centra sulla destinazione e apri il cassetto AI
-      map.flyTo({ center: [lon, lat], zoom: 13, pitch: 30, duration: 500 });
-      apriAiDrawer();
+      // Centra sulla destinazione e apri AUTOMATICAMENTE il cassetto AI
+      map.flyTo({ center: [lon, lat], zoom: 14, pitch: 30, duration: 600 });
 
-      // AVVIA IMMEDIATAMENTE IL CALCOLO DELL'ITINERARIO
-      await calcolaPercorso();
+      // Apri il cassetto AI per consentire di impostare le preferenze prima del calcolo
+      apriAiDrawer();
+      showToast("Scegli le preferenze AI e tocca la freccia verde per calcolare.");
     }
 
     let isAiDrawerOpen = false;

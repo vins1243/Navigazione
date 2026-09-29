@@ -1,5 +1,5 @@
 // Cloudflare Pages Function: /api/plan
-// Esegue la pianificazione intelligente del viaggio con OpenAI GPT-4o-mini con motore di autocritica e ottimizzazione continua
+// Esegue la pianificazione intelligente del viaggio con OpenAI GPT-4o (Flagship Model)
 
 export async function onRequestOptions() {
   return new Response(null, {
@@ -21,7 +21,7 @@ export async function onRequestPost(context) {
   if (!apiKey) {
     return new Response(
       JSON.stringify({
-        error: "OPENAI_API_KEY non trovata nelle variabili d'ambiente di Cloudflare Pages. Puoi anche inserirla dall'icona chiave 🔑 nell'app."
+        error: "OPENAI_API_KEY non trovata. Puoi inserirla toccando l'icona della chiave 🔑 nell'app."
       }),
       {
         status: 500,
@@ -50,39 +50,40 @@ export async function onRequestPost(context) {
       );
     }
 
-    const systemPrompt = `Sei un ingegnere e copilota esperto di navigazione, cartografia e logistica stradale automobilistica per percorsi in Italia ed Europa a supporto del motore cartografico OSRM.
-Il tuo compito è analizzare la mappa, il percorso e la richiesta del guidatore, scandagliando le arterie viarie e facendoti costantemente questa domanda di autocritica: "Ho fatto bene a farlo andare di qua? Potevo fare di meglio? C'è un percorso migliore, con strade più scorrevoli, asfalto migliore, tempi brevi e km minori?". Se puoi fare di meglio, AGGIUSTA la rotta.
+    const systemPrompt = `Sei un ingegnere cartografo e copilota automobilistico esperto di logistica stradale in Italia ed Europa a guida del motore di routing OSRM.
+Il tuo obiettivo prioritario è rispettare TASSATIVAMENTE e SENZA ECCEZIONI la preferenza espressa dal guidatore. Non hai limiti di tempo: la qualità e la rigorosa aderenza ai vincoli sono la massima priorità.
 
-METODO DI RAGIONAMENTO E AUTOCRITICA:
+LOGICA COGNITIVA DI RAGIONAMENTO:
 
-1. COMPRENSIONE INTELLIGENTE DELLE STRADE E DELLA RICHIESTA:
-   - I punti possono essere posizionati a qualsiasi distanza (anche vicino alla partenza o all'arrivo se serve evitare il centro o prendere subito una tangenziale/arteria di scorrimento), MA DEVONO TROVARSI TASSATIVAMENTE SU STRADE PRINCIPALI DI SCORRIMENTO (SS Statali, SP Provinciali primarie, raccordi autostradali).
-   - MAI posizionare coordinate su stradine poderali, vie di campagna a fondo cieco, o cortili che costringano l'auto a deviare dalla provinciale per poi tornare indietro!
-   - Se l'utente chiede "PREDILIGI AUTOSTRADA", individua il corridoio a scorrimento veloce/autostradale naturale (es. SS106 a 4 corsie fino a Taranto Nord per entrare in A14 Adriatica diretta, evitando passi montani appenninici isolati).
-   - Se l'utente chiede "EVITA AUTOSTRADE" / "NO PEDAGGI":
-     Devi farti la domanda categorica: "Questa strada è un'autostrada (A14, A1, A16, A...)? Se sì, NON CI POSSO ANDARE!".
-     Posiziona i waypoints con precisione chirurgica lungo le Strade Statali (SS) parallele (es. SS16 Adriatica, SS106 Jonica, SS96) in modo da forzare il navigatore OSRM a rimanere fuori da ogni casello e svincolo autostradale per l'intero viaggio.
+1. VINCOLO "EVITA AUTOSTRADE / NO PEDAGGI / SOLO STATALI":
+   - DOMANDA FONDAMENTALE PER OGNI ARTERIA: "Questa strada è un'autostrada (A14, A1, A16, A4, A13, A22, A30, ecc.)? Se la risposta è SÌ, ALLORA NON CI POSSO ANDARE!".
+   - Non fidarti mai di un punto generico: OSRM se lasciato senza punti intermedi tra due città distanti imbocca SEMPRE l'autostrada.
+   - Per forzare OSRM a non prendere l'autostrada, devi posizionare i waypoints lungo le Strade Statali (SS) primarie (es. SS16 Adriatica, SS106 Jonica, SS96, SS1 Aurelia, SS18 Tirrenica, SS13 Pontebbana, SS9 Via Emilia) nei centri abitati o sulle tangenziali statali, con una frequenza di ogni 40-70 km lungo l'intero tragitto tra partenza e arrivo.
+   - Posiziona le coordinate tassativamente su strade secondarie/statali urbane, MAI in prossimità di caselli o svincoli autostradali.
 
-2. SCANDAGLIO E AUTOCRITICA ("Ho fatto bene a farlo andare di qua? Potevo fare di meglio?"):
-   - Prima di confermare i waypoints, rifletti:
-     * "Questo punto fa fare una deviazione inutile fuori rotta o entra in una stradina cieca?"
-     * "La strada scelta è scorrevole o tortuosa?"
-     * "Rispetta la richiesta dell'utente con il minor tempo e chilometri possibili?"
-   - Se rilevi un allungo inutile o una strada secondaria non idonea, correggi e sposta il waypoint sull'arteria principale più logica, scorrevole e diretta.
+2. ALTRE PREFERENZE QUALITATIVE (Panoramico, Evita curve, Borghi, Laghi, Costiera, ecc.):
+   - Individua le strade regionali e statali scenografiche (es. costiere, collinari, laghi) e colloca i waypoints nei punti panoramici esatti.
+   - Evita sempre stradine cieche, poderali o cortili privati: i punti devono trovarsi su carreggiate asfaltate a doppio senso di scorrimento.
 
-3. RISPONDI TASSATIVAMENTE IN FORMATO JSON:
+3. AUTOCRITICA E VERIFICA FINALE:
+   - Prima di rispondere, riesamina ogni singolo waypoint:
+     * "Questo punto fa imboccare un casello a pedaggio o una tratta A?" Se sì, correggilo subito.
+     * "La sequenza è continua e senza inutili zig-zag da un versante all'altro degli Appennini?"
+     * "I punti sono ordinati dal punto di partenza verso la destinazione?"
+
+FORMATO RISPOSTA OBBLIGATORIO (JSON):
 {
-  "autocritica": "Sintesi dell'analisi critica del percorso: cosa è stato verificato, quali allunghi sono stati evitati e perché la soluzione proposta è la migliore.",
-  "spiegazione": "Descrizione chiara per il guidatore della rotta ottimizzata e delle arterie scelte.",
+  "autocritica": "Analisi critica approfondita: quali arterie sono state escluse (es. A14, A1), quali statali sono state scelte e perché l'itinerario è conforme al 100% alla preferenza.",
+  "spiegazione": "Descrizione chiara ed esaustiva per il guidatore della rotta, con i nomi delle arterie statali seguite.",
   "proposte": [
     {
-      "nome": "Titolo della strategia (es. Corridoio A14 Adriatica veloce, o Statale SS106 senza pedaggi)",
-      "descrizione": "Dettaglio delle strade seguite",
+      "nome": "Titolo descrittivo della rotta (es. Corridoio Statale Adriatica SS16 senza pedaggi)",
+      "descrizione": "Dettaglio delle arterie e dei passaggi chiave",
       "via_points": [
         {
-          "nome": "Nome casello, snodo o arteria principale",
-          "lat": 40.5432,
-          "lon": 17.1234
+          "nome": "Nome città / arteria statale (es. SS16 Cerignola Centro)",
+          "lat": 41.2650,
+          "lon": 15.8950
         }
       ]
     }
@@ -91,18 +92,18 @@ METODO DI RAGIONAMENTO E AUTOCRITICA:
 
     let baselineDesc = "";
     if (baseline_route && baseline_route.roads && baseline_route.roads.length > 0) {
-      baselineDesc = `\n- Percorso precalcolato iniziale dal navigatore:
+      baselineDesc = `\n- Itinerario standard calcolato dal navigatore:
   * Distanza: ${baseline_route.distance_km || '--'} km
   * Durata: ${baseline_route.duration_min || '--'} min
-  * Strade attualmente usate: ${baseline_route.roads.join(', ')}`;
+  * Strade attualmente proposte dal motore: ${baseline_route.roads.join(', ')}`;
     }
 
-    const userPrompt = `DATI DI VIAGGIO:
+    const userPrompt = `PIANIFICAZIONE VIAGGIO COGNITIVA:
 - Partenza: ${JSON.stringify(origin)}
 - Destinazione: ${JSON.stringify(destination)}${baselineDesc}
-- RICHIESTA GUIDATORE: "${preferences || 'Percorso migliore bilanciato'}"
+- RICHIESTA GUIDATORE: "${preferences || 'Miglior percorso bilanciato'}"
 
-Scandaglia il percorso, effettua l'autocritica e genera le proposte di waypoints ottimali su strade primarie, assicurando il miglior compromesso tra tempi, chilometri e scorrevolezza.`;
+Analizza la richiesta, esegui l'autocritica e genera i waypoints strategici che soddisfano rigorosamente le istruzioni del guidatore.`;
 
     const openAiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -111,7 +112,7 @@ Scandaglia il percorso, effettua l'autocritica e genera le proposte di waypoints
         "Authorization": `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
+        model: "gpt-4o",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt }
