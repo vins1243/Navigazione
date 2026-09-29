@@ -1,48 +1,24 @@
-// Cloudflare Worker: Entrypoint per navigazione.v-desantis04.workers.dev
-// Gestisce /api/plan con OpenAI GPT-4o-mini e serve gli asset statici
-
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-
-    // Gestione Preflight CORS
-    if (request.method === 'OPTIONS') {
-      return new Response(null, {
-        status: 204,
-        headers: {
-          "Access-Control-Allow-Origin": "*",
-          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-          "Access-Control-Allow-Headers": "Content-Type, Authorization"
-        }
-      });
-    }
-
+    
     if (url.pathname === '/api/plan') {
       if (request.method !== 'POST') {
         return new Response(JSON.stringify({ error: 'Metodo non consentito' }), {
           status: 405,
-          headers: {
-            'Content-Type': 'application/json',
-            "Access-Control-Allow-Origin": "*"
-          }
+          headers: { 'Content-Type': 'application/json' }
         });
       }
 
-      // Ricerca API key tra tutte le possibili variabili d'ambiente Cloudflare o header Authorization
-      const headerKey = (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '').trim();
-      const apiKey = (env && (env.OPENAI_API_KEY || env.OPENAI_KEY || env.API_KEY || env.AI_KEY)) || headerKey;
-
+      const apiKey = env.OPENAI_API_KEY;
       if (!apiKey) {
         return new Response(
           JSON.stringify({
-            error: "OPENAI_API_KEY non trovata nelle variabili di Cloudflare. Puoi anche inserirla dall'icona chiave 🔑 nell'app."
+            error: "OPENAI_API_KEY non configurata nelle variabili d'ambiente di Cloudflare."
           }),
           {
             status: 500,
-            headers: {
-              "Content-Type": "application/json",
-              "Access-Control-Allow-Origin": "*"
-            }
+            headers: { "Content-Type": "application/json" }
           }
         );
       }
@@ -54,27 +30,21 @@ export default {
         if (!origin || !destination) {
           return new Response(
             JSON.stringify({ error: "Origine e destinazione sono obbligatorie." }),
-            {
-              status: 400,
-              headers: {
-                "Content-Type": "application/json",
-                "Access-Control-Allow-Origin": "*"
-              }
-            }
+            { status: 400, headers: { "Content-Type": "application/json" } }
           );
         }
 
-        const systemPrompt = `Sei un ingegnere esperto di navigazione stradale e logistica automobilistica per percorsi in Italia ed Europa a supporto del motore cartografico OSRM.
-OSRM di default sceglie SEMPRE le autostrade per via dei limiti di velocità più alti.
+        const systemPrompt = `Sei un ingegnere esperto di navigazione stradale e logistica per percorsi in auto in Italia ed Europa.
+Lavori a supporto del motore cartografico OSRM, che di default sceglie SEMPRE le autostrade per via dei limiti di velocità più alti.
 
-Il tuo compito è analizzare la richiesta del guidatore e il percorso precalcolato, e restituire dei punti di passaggio geografici intermedi (waypoints) che DEVONO FORZARE FISICAMENTE il navigatore a cambiare strada.
+Il tuo compito è analizzare la richiesta del guidatore ed eventualmente il percorso precalcolato, e restituire dei punti di passaggio geografici intermedi (waypoints) che DEVONO FORZARE FISICAMENTE il navigatore a cambiare strada.
 
 REGOLE TASSATIVE PER GENERARE I WAYPOINTS:
 
 1. SE L'UTENTE CHIEDE "EVITA AUTOSTRADE" / "NO PEDAGGI" / "SOLO STATALI":
    - OSRM cerca in tutti i modi di rientrare in autostrada tra un punto e l'altro se trova un casello vicino.
-   - Per impedire questo in modo categorico, DEVI generare da 3 a 5 waypoints intermedi ben distribuiti lungo l'intero tragitto.
-   - Ogni punto DEVE trovarsi su una Strada Statale o Regionale principale (es. SS16 Adriatica, SS106 Jonica, SS18 Tirrenica, SS1 Aurelia, SS9 Via Emilia, SS67, SS3bis Tiberina, SS7, ecc.).
+   - Per impedire questo in modo ferreo, DEVI generare da 3 a 5 waypoints intermedi ben distribuiti lungo l'intero tragitto.
+   - Ogni punto DEVE trovarsi su una Strada Statale o Regionale principale (es. SS16 Adriatica, SS106 Jonica, SS18 Tirrenica, SS1 Aurelia, SS9 Via Emilia, SS67, SS3bis Tiberina, ecc.).
    - SCEGLI CENTRI ABITATI O SNODI LUNGO LA STATALE CHE SIANO BEN DISTANTI DAI CASELLI AUTOSTRADALI, così che percorrere l'autostrada tra un punto e l'altro sia per OSRM uno svantaggio chilometrico evidente e sia costretto a restare sulla statale.
 
 2. SE L'UTENTE CHIEDE "SOLO AUTOSTRADA" / "PREDILIGI AUTOSTRADA" / "COMFORT":
@@ -134,13 +104,7 @@ Calcola i via_points necessari per garantire che il navigatore OSRM segua fedelm
           const errData = await openAiResponse.json().catch(() => ({}));
           return new Response(
             JSON.stringify({ error: `Errore OpenAI: ${errData.error?.message || openAiResponse.statusText}` }),
-            {
-              status: openAiResponse.status,
-              headers: {
-                "Content-Type": "application/json",
-                "Access-Control-Allow-Origin": "*"
-              }
-            }
+            { status: openAiResponse.status, headers: { "Content-Type": "application/json" } }
           );
         }
 
@@ -152,7 +116,6 @@ Calcola i via_points necessari per garantire che il navigatore OSRM segua fedelm
           status: 200,
           headers: {
             "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*",
             "Cache-Control": "public, max-age=1800"
           }
         });
@@ -160,13 +123,7 @@ Calcola i via_points necessari per garantire che il navigatore OSRM segua fedelm
       } catch (error) {
         return new Response(
           JSON.stringify({ error: `Errore interno server: ${error.message}` }),
-          {
-            status: 500,
-            headers: {
-              "Content-Type": "application/json",
-              "Access-Control-Allow-Origin": "*"
-            }
-          }
+          { status: 500, headers: { "Content-Type": "application/json" } }
         );
       }
     }

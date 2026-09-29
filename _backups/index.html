@@ -682,9 +682,6 @@
       <div style="display:flex; gap:8px; align-items:center; width:100%;">
         <input type="text" id="ai-custom-prompt" placeholder="Istruzioni o preferenze per l'IA (es. evita autostrade, panoramico, evita centri urbani)..." style="flex:1; background:rgba(255,255,255,0.06); border:1px solid var(--easylink-border); border-radius:10px; padding:9px 12px; color:white; font-size:12px; outline:none;" value="">
         
-        <button onclick="gestisciApiKey()" id="btn-api-key" title="Configura OpenAI API Key" style="background:rgba(255,255,255,0.08); border:1px solid var(--easylink-border); color:#f59e0b; width:34px; height:34px; border-radius:10px; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0;">
-          <i data-lucide="key" style="width:16px; height:16px;"></i>
-        </button>
         <button onclick="eseguiInvioPercorso()" id="btn-send-drawer" title="Invia preferenze e calcola" style="background:linear-gradient(135deg, #10b981 0%, #059669 100%); border:none; color:white; width:34px; height:34px; border-radius:10px; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; box-shadow:0 2px 10px rgba(16,185,129,0.5);">
           <i data-lucide="arrow-right" style="width:18px; height:18px;"></i>
         </button>
@@ -1166,20 +1163,6 @@
       else apriAiDrawer();
     }
 
-    function gestisciApiKey() {
-      const current = localStorage.getItem('user_openai_key') || '';
-      const input = prompt("Inserisci la tua OpenAI API Key (sk-...):\n(Verrà salvata in modo sicuro solo nel tuo browser in locale)", current);
-      if (input !== null) {
-        if (input.trim()) {
-          localStorage.setItem('user_openai_key', input.trim());
-          showToast("🔑 Chiave API salvata con successo!");
-        } else {
-          localStorage.removeItem('user_openai_key');
-          showToast("ℹ️ Chiave locale rimossa, si userà quella di Cloudflare");
-        }
-      }
-    }
-
     function selezionaChip(el, text) {
       if (document.getElementById('ai-custom-prompt')) {
         document.getElementById('ai-custom-prompt').value = text;
@@ -1228,17 +1211,10 @@
       // 2. Se l'utente ha inserito una richiesta AI, invia il percorso precalcolato per deviarlo
       if (customPrompt) {
         showToast("Consultazione OpenAI...");
-        const localKey = localStorage.getItem('user_openai_key') || '';
-        let aiSuccess = false;
-
-        // Prova prima l'endpoint serverless /api/plan
         try {
-          const headers = { 'Content-Type': 'application/json' };
-          if (localKey) headers['Authorization'] = `Bearer ${localKey}`;
-
           const aiRes = await fetch('/api/plan', {
             method: 'POST',
-            headers: headers,
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               origin: { lat: userLocation.lat, lon: userLocation.lon, name: "La mia posizione" },
               destination: destLocation,
@@ -1267,7 +1243,6 @@
             if (aiData.spiegazione) {
               aiExplanation = aiData.spiegazione;
             }
-            aiSuccess = true;
           } else {
             let errorDetail = "HTTP " + aiRes.status;
             try {
@@ -1277,67 +1252,12 @@
               const txt = await aiRes.text().catch(() => "");
               if (txt) errorDetail += ": " + txt.slice(0, 60);
             }
-            console.warn("Server /api/plan error:", errorDetail);
-            if (!localKey) {
-              showToast("⚠️ " + errorDetail);
-            }
+            console.warn("AI Plan fallback:", errorDetail);
+            showToast("⚠️ " + errorDetail);
           }
         } catch (e) {
-          console.warn("Chiamata /api/plan fallita:", e);
-          if (!localKey) {
-            showToast("⚠️ Errore connessione /api/plan");
-          }
-        }
-
-        // Fallback diretto su OpenAI client-side se il server fallisce ed è presente la chiave locale
-        if (!aiSuccess && localKey) {
-          try {
-            showToast("Consultazione OpenAI diretta client-side...");
-            const directRes = await fetch("https://api.openai.com/v1/chat/completions", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${localKey}`
-              },
-              body: JSON.stringify({
-                model: "gpt-4o-mini",
-                messages: [
-                  {
-                    role: "system",
-                    content: "Sei un ingegnere esperto di navigazione stradale per percorsi in Italia ed Europa a supporto del motore OSRM. Se l'utente chiede 'evita autostrade', DEVI generare da 3 a 5 waypoints intermedi ben distribuiti lungo le Strade Statali (es. SS16, SS106, SS18, SS1, SS9) in centri abitati distanti dai caselli. Rispondi con JSON: { \"spiegazione\": \"...\", \"via_points\": [ { \"nome\": \"...\", \"lat\": 40.1, \"lon\": 16.5 } ] }"
-                  },
-                  {
-                    role: "user",
-                    content: `DATI VIAGGIO:\n- Partenza: ${JSON.stringify(userLocation)}\n- Destinazione: ${JSON.stringify(destLocation)}\n- Strade attuali precalcolate: ${uniqueRoads.join(', ')}\n- RICHIESTA GUIDATORE: "${customPrompt}"`
-                  }
-                ],
-                response_format: { type: "json_object" },
-                temperature: 0.2
-              })
-            });
-
-            if (directRes.ok) {
-              const directData = await directRes.json();
-              const parsed = JSON.parse(directData.choices[0].message.content);
-              if (parsed.via_points && Array.isArray(parsed.via_points) && parsed.via_points.length > 0) {
-                waypoints = parsed.via_points.map(w => ({
-                  lat: parseFloat(w.lat !== undefined ? w.lat : w.latitude),
-                  lon: parseFloat(w.lon !== undefined ? w.lon : (w.lng !== undefined ? w.lng : w.longitude)),
-                  nome: w.nome || w.name || "Punto via"
-                })).filter(w => !isNaN(w.lat) && !isNaN(w.lon));
-                showToast(`🎯 L'IA (diretta) ha applicato ${waypoints.length} tappe per deviare il percorso`);
-              }
-              if (parsed.spiegazione) {
-                aiExplanation = parsed.spiegazione;
-              }
-            } else {
-              const dErr = await directRes.json().catch(() => ({}));
-              showToast("⚠️ OpenAI: " + (dErr.error?.message || directRes.statusText));
-            }
-          } catch (directErr) {
-            console.warn("Chiamata diretta OpenAI fallita:", directErr);
-            showToast("⚠️ Errore chiamata OpenAI diretta");
-          }
+          console.warn("Chiamata AI fallita:", e);
+          showToast("⚠️ Errore connessione AI");
         }
       }
 
