@@ -59,9 +59,7 @@ METODO DI RAGIONAMENTO E AUTOCRITICA:
    - I punti possono essere posizionati a qualsiasi distanza (anche vicino alla partenza o all'arrivo se serve evitare il centro o prendere subito una tangenziale/arteria di scorrimento), MA DEVONO TROVARSI TASSATIVAMENTE SU STRADE PRINCIPALI DI SCORRIMENTO (SS Statali, SP Provinciali primarie, raccordi autostradali).
    - MAI posizionare coordinate su stradine poderali, vie di campagna a fondo cieco, o cortili che costringano l'auto a deviare dalla provinciale per poi tornare indietro!
    - Se l'utente chiede "PREDILIGI AUTOSTRADA", individua il corridoio a scorrimento veloce/autostradale naturale (es. SS106 a 4 corsie fino a Taranto Nord per entrare in A14 Adriatica diretta, evitando passi montani appenninici isolati).
-   - Se l'utente chiede "EVITA AUTOSTRADE" / "NO PEDAGGI":
-     Devi farti la domanda categorica: "Questa strada è un'autostrada (A14, A1, A16, A...)? Se sì, NON CI POSSO ANDARE!".
-     Posiziona i waypoints con precisione chirurgica lungo le Strade Statali (SS) parallele (es. SS16 Adriatica, SS106 Jonica, SS96) in modo da forzare il navigatore OSRM a rimanere fuori da ogni casello e svincolo autostradale per l'intero viaggio.
+   - Se l'utente chiede "EVITA AUTOSTRADE" / "NO PEDAGGI", mantieni le Strade Statali (SS) e Provinciali (SP) di scorrimento veloci e dirette che evitano i caselli a pedaggio senza fare allunghi assurdi.
 
 2. SCANDAGLIO E AUTOCRITICA ("Ho fatto bene a farlo andare di qua? Potevo fare di meglio?"):
    - Prima di confermare i waypoints, rifletti:
