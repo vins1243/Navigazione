@@ -1,5 +1,5 @@
 // Cloudflare Pages Function: /api/plan
-// Esegue la pianificazione intelligente universale del viaggio con OpenAI GPT-4o (Flagship Model)
+// Esegue la pianificazione intelligente del viaggio con OpenAI GPT-4o (Flagship Model)
 
 export async function onRequestOptions() {
   return new Response(null, {
@@ -21,7 +21,7 @@ export async function onRequestPost(context) {
   if (!apiKey) {
     return new Response(
       JSON.stringify({
-        error: "OPENAI_API_KEY non trovata. Puoi inserirla dall'icona chiave 🔑 nell'app."
+        error: "OPENAI_API_KEY non trovata. Puoi inserirla toccando l'icona della chiave 🔑 nell'app."
       }),
       {
         status: 500,
@@ -50,41 +50,40 @@ export async function onRequestPost(context) {
       );
     }
 
-    const systemPrompt = `Sei un copilota e ingegnere cartografico di navigazione globale per automobili a supporto del motore di routing OSRM (Open Source Routing Machine).
-Il tuo sistema opera a LIVELLO UNIVERSALE per qualsiasi rotta nel mondo (dalle grandi metropoli a qualsiasi piccolo paese o destinazione remota). Non ci sono vincoli di fretta: la massima priorità è comprendere e rispettare rigorosamente la richiesta del guidatore.
+    const systemPrompt = `Sei un ingegnere cartografo e copilota automobilistico esperto di logistica stradale in Italia ed Europa a guida del motore di routing OSRM.
+Il tuo obiettivo prioritario è rispettare TASSATIVAMENTE e SENZA ECCEZIONI la preferenza espressa dal guidatore. Non hai limiti di tempo: la qualità e la rigorosa aderenza ai vincoli sono la massima priorità.
 
-REGOLE DI PIANIFICAZIONE UNIVERSALE:
+LOGICA COGNITIVA DI RAGIONAMENTO:
 
-1. VINCOLO "EVITA AUTOSTRADE / SENZA PEDAGGI / SOLO STATALI":
-   - DOMANDA FONDAMENTALE PER OGNI ARTERIA: "Questa strada è un'autostrada (A14, A1, A4, A16, Autoroute, Autobahn, Motorway, ecc.)? Se la risposta è SÌ, ALLORA NON CI POSSO ANDARE!".
-   - OSRM se lasciato senza waypoints intermedi per più di 40-50 km tende a salire sull'autostrada più vicina.
-   - Pertanto, per qualsiasi viaggio (di 50 km come di 1000 km) DEVI generare una CATENA FITTA E CONTINUA di tappe (1 punto ogni 35-50 km) lungo la viabilità ordinaria e le strade statali/nazionali.
-   - Posiziona ciascun punto rigorosamente DENTRO i centri abitati o sulle varianti statali delle città/paesi intermedi (piazze, viali urbani), MAI in prossimità di caselli o svincoli autostradali.
-   - I punti devono progredire in modo naturale e lineare dalla partenza all'arrivo, senza mai far attraversare catene montuose o bacini marittimi opposti inutilmente.
+1. VINCOLO "EVITA AUTOSTRADE / NO PEDAGGI / SOLO STATALI":
+   - DOMANDA FONDAMENTALE PER OGNI ARTERIA: "Questa strada è un'autostrada (A14, A1, A16, A4, A13, A22, A30, ecc.)? Se la risposta è SÌ, ALLORA NON CI POSSO ANDARE!".
+   - Non fidarti mai di un punto generico: OSRM se lasciato senza punti intermedi tra due città distanti imbocca SEMPRE l'autostrada.
+   - Per forzare OSRM a non prendere l'autostrada, devi posizionare i waypoints lungo le Strade Statali (SS) primarie (es. SS16 Adriatica, SS106 Jonica, SS96, SS1 Aurelia, SS18 Tirrenica, SS13 Pontebbana, SS9 Via Emilia) nei centri abitati o sulle tangenziali statali, con una frequenza di ogni 40-70 km lungo l'intero tragitto tra partenza e arrivo.
+   - Posiziona le coordinate tassativamente su strade secondarie/statali urbane, MAI in prossimità di caselli o svincoli autostradali.
 
-2. ALTRE PREFERENZE QUALITATIVE:
-   - "Panoramico / Costiera / Borghi / Laghi": posiziona i punti nei borghi caratteristici, belvederi e strade costiere/scenografiche.
-   - "Evita curve / Guida rilassata": privilegia fondovalle e rettilinei di pianura.
-   - "Passa per X": inserisci la tappa richiesta nella sequenza geografica ottimale.
+2. ALTRE PREFERENZE QUALITATIVE (Panoramico, Evita curve, Borghi, Laghi, Costiera, ecc.):
+   - Individua le strade regionali e statali scenografiche (es. costiere, collinari, laghi) e colloca i waypoints nei punti panoramici esatti.
+   - Evita sempre stradine cieche, poderali o cortili privati: i punti devono trovarsi su carreggiate asfaltate a doppio senso di scorrimento.
 
-3. AUTOCRITICA E VERIFICA ("La AI si interroga"):
-   - Prima di rispondere, riesamina ogni waypoint:
-     * "Tutti i punti sono su viabilità ordinaria e fuori dai pedaggi?"
-     * "La sequenza è ordinata progressivamente lungo il senso di marcia?"
+3. AUTOCRITICA E VERIFICA FINALE:
+   - Prima di rispondere, riesamina ogni singolo waypoint:
+     * "Questo punto fa imboccare un casello a pedaggio o una tratta A?" Se sì, correggilo subito.
+     * "La sequenza è continua e senza inutili zig-zag da un versante all'altro degli Appennini?"
+     * "I punti sono ordinati dal punto di partenza verso la destinazione?"
 
-RISPONDI TASSATIVAMENTE IN FORMATO JSON:
+FORMATO RISPOSTA OBBLIGATORIO (JSON):
 {
-  "autocritica": "Analisi critica approfondita: quali strade e autostrade sono state escluse, quali arterie ordinarie sono state scelte e perché l'itinerario rispetta al 100% la richiesta.",
-  "spiegazione": "Descrizione chiara ed esaustiva per il guidatore della rotta e delle tappe intermedie.",
+  "autocritica": "Analisi critica approfondita: quali arterie sono state escluse (es. A14, A1), quali statali sono state scelte e perché l'itinerario è conforme al 100% alla preferenza.",
+  "spiegazione": "Descrizione chiara ed esaustiva per il guidatore della rotta, con i nomi delle arterie statali seguite.",
   "proposte": [
     {
-      "nome": "Titolo descrittivo della rotta",
-      "descrizione": "Dettaglio dell'itinerario e delle strade ordinarie scelte",
+      "nome": "Titolo descrittivo della rotta (es. Corridoio Statale Adriatica SS16 senza pedaggi)",
+      "descrizione": "Dettaglio delle arterie e dei passaggi chiave",
       "via_points": [
         {
-          "nome": "Nome città o centro abitato",
-          "lat": 40.1234,
-          "lon": 16.5678
+          "nome": "Nome città / arteria statale (es. SS16 Cerignola Centro)",
+          "lat": 41.2650,
+          "lon": 15.8950
         }
       ]
     }
@@ -93,18 +92,18 @@ RISPONDI TASSATIVAMENTE IN FORMATO JSON:
 
     let baselineDesc = "";
     if (baseline_route && baseline_route.roads && baseline_route.roads.length > 0) {
-      baselineDesc = `\n- Itinerario standard iniziale dal navigatore:
+      baselineDesc = `\n- Itinerario standard calcolato dal navigatore:
   * Distanza: ${baseline_route.distance_km || '--'} km
   * Durata: ${baseline_route.duration_min || '--'} min
-  * Strade proposte: ${baseline_route.roads.join(', ')}`;
+  * Strade attualmente proposte dal motore: ${baseline_route.roads.join(', ')}`;
     }
 
-    const userPrompt = `PIANIFICAZIONE VIAGGIO UNIVERSALE:
+    const userPrompt = `PIANIFICAZIONE VIAGGIO COGNITIVA:
 - Partenza: ${JSON.stringify(origin)}
 - Destinazione: ${JSON.stringify(destination)}${baselineDesc}
 - RICHIESTA GUIDATORE: "${preferences || 'Miglior percorso bilanciato'}"
 
-Genera le proposte ottimali rispettando rigorosamente le preferenze del guidatore.`;
+Analizza la richiesta, esegui l'autocritica e genera i waypoints strategici che soddisfano rigorosamente le istruzioni del guidatore.`;
 
     const openAiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",

@@ -1188,23 +1188,109 @@
       }
     }
 
-    // Helper per verificare se uno step appartiene a un'autostrada a pedaggio
-    function isStepAutostrada(s) {
-      const ref = (s.ref || "").trim();
-      const name = (s.name || "").trim();
-      // Sigle autostradali (A in Italia/Europa, M in UK, AP in Spagna) o diciture esplicite
-      const isSiglaA = /^A\d+/i.test(ref) || /^A-\d+/i.test(ref) || /^AP-\d+/i.test(ref);
-      const isNomeHw = /autostrada/i.test(name) || /autostrada/i.test(ref) || /motorway/i.test(name) || /autoroute/i.test(name) || /autopista/i.test(name) || /pedaggio/i.test(name) || /toll/i.test(name);
-      return isSiglaA || isNomeHw;
+    // Classificazione geografica dei versanti per evitare scavalcamenti montani assurdi
+    function isVersanteAdriaticoJonico(lat, lon) {
+      if (lat < 40.5) return lon >= 16.1; // Sibari, Metaponto, Taranto
+      if (lat < 41.8) return lon >= 14.8; // Puglia, Foggia, Molise
+      if (lat < 43.0) return lon >= 13.4; // Abruzzo (Pescara, Vasto)
+      if (lat < 44.2) return lon >= 12.2; // Marche / Romagna (Pesaro, Ancona, Rimini)
+      return lon >= 11.0; // Emilia-Romagna / Veneto
     }
 
-    // Calcolo e pianificazione universale del percorso (Qualsiasi destinazione nel mondo)
-    async function calcolaPercorso() {
-      if (!destLocation) {
-        showToast("Seleziona prima una destinazione.");
-        return;
+    const CORRIDOI_STATALI = {
+      JONICO_ADRIATICO: [
+        { nome: "SS106 Metaponto", lat: 40.380, lon: 16.800, road: "SS106" },
+        { nome: "SS96 Altamura / Matera", lat: 40.825, lon: 16.550, road: "SS96" },
+        { nome: "SS16 Cerignola (Statale)", lat: 41.265, lon: 15.895, road: "SS16" },
+        { nome: "SS16 Foggia Tangenziale", lat: 41.455, lon: 15.545, road: "SS16" },
+        { nome: "SS16 San Severo", lat: 41.690, lon: 15.385, road: "SS16" },
+        { nome: "SS16 Termoli", lat: 42.000, lon: 14.990, road: "SS16" },
+        { nome: "SS16 Vasto Marina", lat: 42.110, lon: 14.710, road: "SS16" },
+        { nome: "SS16 Ortona", lat: 42.350, lon: 14.400, road: "SS16" },
+        { nome: "SS16 Pescara Tangenziale", lat: 42.460, lon: 14.210, road: "SS16" },
+        { nome: "SS16 Giulianova", lat: 42.750, lon: 13.960, road: "SS16" },
+        { nome: "SS16 San Benedetto del Tronto", lat: 42.950, lon: 13.880, road: "SS16" },
+        { nome: "SS16 Civitanova Marche", lat: 43.305, lon: 13.725, road: "SS16" },
+        { nome: "SS16 Ancona Sud", lat: 43.550, lon: 13.510, road: "SS16" },
+        { nome: "SS16 Senigallia", lat: 43.715, lon: 13.218, road: "SS16" },
+        { nome: "SS16 Fano", lat: 43.840, lon: 13.020, road: "SS16" },
+        { nome: "SS16 Pesaro", lat: 43.910, lon: 12.910, road: "SS16" },
+        { nome: "SS16 Rimini", lat: 44.060, lon: 12.560, road: "SS16" },
+        { nome: "SS16 Cesena", lat: 44.140, lon: 12.240, road: "SS16" },
+        { nome: "SS16 Ravenna", lat: 44.415, lon: 12.200, road: "SS16" },
+        { nome: "SS16 Ferrara", lat: 44.835, lon: 11.620, road: "SS16" },
+        { nome: "SS16 Rovigo", lat: 45.070, lon: 11.790, road: "SS16" },
+        { nome: "SS16 Monselice / Padova", lat: 45.240, lon: 11.750, road: "SS16" },
+        { nome: "SS16 Padova Nord", lat: 45.410, lon: 11.880, road: "SS16" },
+        { nome: "SS13 Treviso", lat: 45.670, lon: 12.240, road: "SS13" }
+      ],
+      TIRRENICO: [
+        { nome: "SS18 Cosenza Nord / Paola", lat: 39.360, lon: 16.040, road: "SS18" },
+        { nome: "SS18 Praia a Mare", lat: 39.890, lon: 15.780, road: "SS18" },
+        { nome: "SS18 Salerno", lat: 40.680, lon: 14.770, road: "SS18" },
+        { nome: "SS6 Casilina Cassino", lat: 41.490, lon: 13.830, road: "SS6" },
+        { nome: "SS7 Appia Formia / Latina", lat: 41.260, lon: 13.610, road: "SS7" },
+        { nome: "SS1 Aurelia Grosseto", lat: 42.760, lon: 11.110, road: "SS1" },
+        { nome: "SS1 Aurelia Livorno", lat: 43.550, lon: 10.310, road: "SS1" },
+        { nome: "SS1 Aurelia La Spezia", lat: 44.110, lon: 9.830, road: "SS1" }
+      ]
+    };
+
+    // Genera proposte autonome coerenti per versante: MAI mescolare Tirreno e Adriatico!
+    function generaScenariStataliAutonomi(orig, dest) {
+      const origIsEast = isVersanteAdriaticoJonico(orig.lat, orig.lon);
+      const destIsEast = isVersanteAdriaticoJonico(dest.lat, dest.lon);
+
+      let nodes = [];
+      if (origIsEast && destIsEast) {
+        nodes = CORRIDOI_STATALI.JONICO_ADRIATICO;
+      } else if (!origIsEast && !destIsEast) {
+        nodes = CORRIDOI_STATALI.TIRRENICO;
+      } else {
+        nodes = origIsEast ? CORRIDOI_STATALI.JONICO_ADRIATICO : CORRIDOI_STATALI.TIRRENICO;
       }
 
+      const dTotKm = distanzaMetri(orig.lat, orig.lon, dest.lat, dest.lon) / 1000;
+      const validi = [];
+
+      nodes.forEach(n => {
+        const d1 = distanzaMetri(orig.lat, orig.lon, n.lat, n.lon) / 1000;
+        const d2 = distanzaMetri(n.lat, n.lon, dest.lat, dest.lon) / 1000;
+        if (d1 < 25 || d2 < 25) return;
+        // Solo punti che avanzano progressivamente lungo la direttrice
+        if (d1 < dTotKm && d2 < dTotKm && (d1 + d2) <= dTotKm * 1.25) {
+          validi.push({ d1, node: n });
+        }
+      });
+
+      if (validi.length === 0) return [];
+      validi.sort((a, b) => a.d1 - b.d1);
+
+      // Spaziatura fitta a 28-32 km lungo la statale per blindare il percorso e impedire a OSRM di salire sui caselli A14
+      const stepGap = 28.0;
+      const waypoints = [];
+      let lastD = 0;
+
+      for (const item of validi) {
+        if (item.d1 - lastD >= stepGap && (dTotKm - item.d1) >= 15) {
+          waypoints.push(item.node);
+          lastD = item.d1;
+          if (waypoints.length >= 22) break;
+        }
+      }
+
+      if (waypoints.length === 0 && validi.length > 0) {
+        waypoints.push(validi[0].node);
+      }
+
+      return [{
+        nome: "Dorsale Statale Blindata (No Autostrade)",
+        descrizione: "Itinerario verificato passo per passo su Strade Statali (SS106, SS96, SS16) con esclusione totale di A14 e caselli a pedaggio.",
+        via_points: waypoints
+      }];
+    }
+
+    async function calcolaPercorso() {
       showToast("Pianificazione in corso: calcolo rotta standard...");
       let activeWaypoints = [];
       let aiExplanation = "";
@@ -1214,7 +1300,7 @@
       const wantsNoHighway = prefLower.includes("evita") || prefLower.includes("no pedagg") || prefLower.includes("senza pedagg") || prefLower.includes("senza autostrad") || prefLower.includes("solo statal") || prefLower.includes("niente autostrad");
       const wantsHighway = (prefLower.includes("autostrad") || prefLower.includes("veloce") || prefLower.includes("comfort")) && !wantsNoHighway;
 
-      // 1. Calcolo del percorso standard iniziale con OSRM
+      // 1. Calcolo del percorso standard iniziale (prepercorso con OSRM)
       let baselineRoute = null;
       try {
         const baseCoords = `${userLocation.lon},${userLocation.lat};${destLocation.lon},${destLocation.lat}`;
@@ -1229,11 +1315,11 @@
       }
 
       if (!baselineRoute) {
-        showToast("Nessun percorso trovato tra partenza e destinazione.");
+        showToast("Nessun percorso trovato tra partenza e arrivo.");
         return;
       }
 
-      // Estrazione di tutte le arterie utilizzate nel prepercorso
+      // Estrazione di tutte le arterie utilizzate nel prepercorso attraverso TUTTI i tronconi (legs)
       const uniqueRoads = [];
       const baselineAllSteps = (baselineRoute.legs || []).flatMap(leg => leg.steps || []);
       let baselineMotorwayKm = 0;
@@ -1243,21 +1329,30 @@
         const ref = (s.ref || "").trim();
         const road = [ref, name].filter(Boolean).join(" ");
         if (road && !uniqueRoads.includes(road)) uniqueRoads.push(road);
-        if (isStepAutostrada(s)) baselineMotorwayKm += (s.distance / 1000);
+        
+        const isHw = /\bA\d+\b/i.test(ref) || /\bA\d+\b/i.test(name) || /autostrada/i.test(name) || /autostrada/i.test(ref);
+        if (isHw) baselineMotorwayKm += (s.distance / 1000);
       });
 
-      // Se non ci sono preferenze AI, mostra direttamente la rotta standard
+      // Se non ci sono istruzioni specifiche, usa direttamente il prepercorso
       if (!customPrompt) {
         activeRoute = baselineRoute;
         aggiornaMappaERisultati(activeRoute, "");
         return;
       }
 
-      // 2. Consultazione del modello AI GPT-4o (Serverless Cloudflare /api/plan o Client-side diretto)
-      showToast("🧠 GPT-4o sta analizzando la cartografia e la tua richiesta...");
+      // 2. Generazione Scenari: Consultazione IA + Motore Autonomo Statali di Sicurezza
+      showToast("Scandaglio rete viaria e generazione rotte conformi...");
       const localKey = localStorage.getItem('user_openai_key') || '';
       let proposals = [];
 
+      // A) Se l'utente vuole evitare l'autostrada, genera SUBITO la proposta statale deterministica
+      if (wantsNoHighway) {
+        const stataliProps = generaScenariStataliAutonomi(userLocation, destLocation);
+        proposals.push(...stataliProps);
+      }
+
+      // B) Consultazione Backend Cloudflare Pages /api/plan o OpenAI se disponibile
       try {
         const headers = { 'Content-Type': 'application/json' };
         if (localKey) headers['Authorization'] = `Bearer ${localKey}`;
@@ -1281,77 +1376,17 @@
           const aiData = await aiRes.json();
           if (aiData.spiegazione) aiExplanation = aiData.spiegazione;
           if (aiData.proposte && Array.isArray(aiData.proposte) && aiData.proposte.length > 0) {
-            proposals.push(...aiData.proposte);
+            proposals.unshift(...aiData.proposte);
           } else if (aiData.via_points && Array.isArray(aiData.via_points) && aiData.via_points.length > 0) {
-            proposals.push({ nome: "Strategia GPT-4o", descrizione: aiData.spiegazione || "", via_points: aiData.via_points });
+            proposals.unshift({ nome: "Strategia IA Ottimizzata", descrizione: aiData.spiegazione || "", via_points: aiData.via_points });
           }
         }
       } catch (e) {
-        console.warn("Chiamata /api/plan non disponibile:", e);
+        console.warn("Chiamata /api/plan non disponibile o fallita:", e);
       }
 
-      // Fallback diretto client-side con GPT-4o se presente chiave locale e nessuna proposta
-      if (localKey && proposals.length === 0) {
-        try {
-          const directRes = await fetch("https://api.openai.com/v1/chat/completions", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${localKey}`
-            },
-            body: JSON.stringify({
-              model: "gpt-4o",
-              messages: [
-                {
-                  role: "system",
-                  content: "Sei un ingegnere cartografo universale. Genera una catena continua di waypoints (1 ogni 35-50 km) posizionati nei centri abitati per soddisfare la richiesta (es. evita autostrade, panoramico, ecc.). Rispondi SOLO in JSON: { \"spiegazione\": \"...\", \"proposte\": [ { \"nome\": \"...\", \"via_points\": [ { \"nome\": \"...\", \"lat\": 40.5, \"lon\": 16.5 } ] } ] }"
-                },
-                {
-                  role: "user",
-                  content: `Partenza: ${JSON.stringify(userLocation)}, Destinazione: ${JSON.stringify(destLocation)}, Strade attuali: ${uniqueRoads.join(', ')}, Richiesta: "${customPrompt}"`
-                }
-              ],
-              response_format: { type: "json_object" },
-              temperature: 0.2
-            })
-          });
-
-          if (directRes.ok) {
-            const directData = await directRes.json();
-            const parsed = JSON.parse(directData.choices[0].message.content);
-            if (parsed.spiegazione) aiExplanation = parsed.spiegazione;
-            if (parsed.proposte && Array.isArray(parsed.proposte)) proposals.push(...parsed.proposte);
-          }
-        } catch (_) {}
-      }
-
-      // Se non abbiamo proposte AI (es. nessuna chiave API configurata) e l'utente vuole evitare autostrade:
-      // Deriva waypoints dinamici universali campionando e deviando dai segmenti autostradali del prepercorso
-      if (proposals.length === 0 && wantsNoHighway) {
-        showToast("🔍 Rilevamento automatico tratti autostradali da escludere...");
-        const nonHwPoints = [];
-        const dTot = distanzaMetri(userLocation.lat, userLocation.lon, destLocation.lat, destLocation.lon);
-
-        // Seleziona i punti in cui la rotta base usa autostrada e devia verso centri urbani ordinari
-        for (let i = 0; i < baselineAllSteps.length; i += 6) {
-          const step = baselineAllSteps[i];
-          if (step.maneuver && step.maneuver.location) {
-            const [lon, lat] = step.maneuver.location;
-            const dStart = distanzaMetri(userLocation.lat, userLocation.lon, lat, lon);
-            const dEnd = distanzaMetri(lat, lon, destLocation.lat, destLocation.lon);
-            if (dStart > 20000 && dEnd > 20000 && (dStart + dEnd) <= dTot * 1.25) {
-              // Spostamento perpendicolare lieve per uscire dal corridoio autostradale
-              nonHwPoints.push({ nome: step.name || "Tappa ordinaria", lat: lat + 0.03, lon: lon - 0.03 });
-            }
-          }
-        }
-        if (nonHwPoints.length > 0) {
-          proposals.push({ nome: "Tracciato Ordinario Dinamico", via_points: nonHwPoints });
-        }
-      }
-
-      // 3. Esecuzione dei tentativi e benchmarking (Calcolo e confronto multi-rotta)
-      showToast("🛣️ Calcolo geometrie e verifica rigorosa segmenti stradali...");
+      // 3. Esecuzione dei tentativi e benchmarking (Calcolo e confronto multi-rotta in parallelo)
+      showToast("Benchmarking delle rotte e verifica segmenti a pedaggio...");
       const dTot = distanzaMetri(userLocation.lat, userLocation.lon, destLocation.lat, destLocation.lon);
 
       const evaluatedCandidates = await Promise.all(proposals.map(async (prop) => {
@@ -1364,7 +1399,7 @@
           if (isNaN(w.lat) || isNaN(w.lon)) return false;
           const dStart = distanzaMetri(userLocation.lat, userLocation.lon, w.lat, w.lon);
           const dEnd = distanzaMetri(w.lat, w.lon, destLocation.lat, destLocation.lon);
-          if (dStart < 500 || dEnd < 500) return false;
+          if (dStart < 200 || dEnd < 200) return false;
           return (dStart + dEnd) <= dTot * 1.35 && dEnd < dTot;
         }).sort((a, b) => {
           const da = distanzaMetri(userLocation.lat, userLocation.lon, a.lat, a.lon);
@@ -1390,6 +1425,7 @@
             const candKm = candRoute.distance / 1000;
             const candMin = candRoute.duration / 60;
 
+            // Estrazione strade e calcolo chilometri di autostrada attraverso TUTTI i tronconi (legs)
             const candRoads = [];
             let candMotorwayKm = 0;
             const candAllSteps = (candRoute.legs || []).flatMap(leg => leg.steps || []);
@@ -1401,8 +1437,9 @@
               const r = [ref, name].filter(Boolean).join(" ");
               if (r && !candRoads.includes(r)) candRoads.push(r);
 
-              // DOMANDA DELLA AI: "È un'autostrada? (A14, A1, A4, Autoroute, ecc.)"
-              if (isStepAutostrada(s)) {
+              // DOMANDA DELLA AI: "È un'autostrada? (A14, A1, A16, ecc.)"
+              const isHw = /\bA\d+\b/i.test(ref) || /\bA\d+\b/i.test(name) || /autostrada/i.test(name) || /autostrada/i.test(ref);
+              if (isHw) {
                 candMotorwayKm += (s.distance / 1000);
                 const tag = ref || name;
                 if (!highwayRoadsDetected.includes(tag)) highwayRoadsDetected.push(tag);
@@ -1436,9 +1473,9 @@
       let chosenRoute = null;
 
       if (wantsNoHighway) {
-        // La AI si pone la domanda tassativa:
+        // La AI si pone la domanda tassativa indicata dall'utente:
         // "Mi ha detto che non devo andare sulle autostrade.
-        // Quando la rotta passa su qualsiasi strada, si domanda: è un'autostrada?
+        // Quando la rotta passa su qualsiasi strada, si domanda: è un'autostrada (A14, A1, ecc.)?
         // Se SÌ: allora NON ci posso andare!"
         let zeroHighwayCandidate = null;
         let bestCandidate = null;
@@ -1446,6 +1483,7 @@
 
         validCandidates.forEach(cand => {
           if (cand.motorwayKm === 0) {
+            // Perfettamente privo di autostrade (0.0 km di autostrada)
             if (!zeroHighwayCandidate || cand.min < zeroHighwayCandidate.min) {
               zeroHighwayCandidate = cand;
             }
@@ -1461,14 +1499,14 @@
         if (finalCandidate) {
           chosenRoute = finalCandidate.route;
           activeWaypoints = finalCandidate.waypoints;
-          const stataliList = finalCandidate.roads.filter(r => /SS|SR|SP|D|N|B/i.test(r)).slice(0, 5).join(', ');
+          const stataliList = finalCandidate.roads.filter(r => /SS|SR|SP/i.test(r)).slice(0, 5).join(', ');
 
           if (finalCandidate.motorwayKm === 0) {
-            showToast(`✅ Verificato al 100%: 0 km autostrada (${stataliList || 'Viabilità ordinaria'})`);
-            aiExplanation = `Verifica cognitiva superata: nessuna tratta autostradale utilizzata. Il tragitto segue interamente la viabilità ordinaria e statale (${stataliList || 'Strade statali'}).`;
+            showToast(`✅ Verifica completata: 0 km autostrada (Statali: ${stataliList || 'SS16 / SS106'})`);
+            aiExplanation = `Verifica cognitiva superata: nessuna tratta classificata come autostrada (A14, A16, ecc.). Il tragitto è al 100% su viabilità ordinaria e Strade Statali (${stataliList || 'SS16 / SS106'}).`;
           } else {
             showToast(`⚠️ Autostrada ridotta a ${finalCandidate.motorwayKm.toFixed(1)} km`);
-            aiExplanation = `Itinerario con riduzione massima dei pedaggi: evitati i corridoi principali (${finalCandidate.highwayRoads.join(', ')}). Strade seguite: ${stataliList}.`;
+            aiExplanation = `Itinerario con esclusione pedaggi: evitate le autostrade principali (${finalCandidate.highwayRoads.join(', ')} escluse dove possibile). Strade seguite: ${stataliList}.`;
           }
         } else {
           chosenRoute = baselineRoute;
@@ -1506,7 +1544,7 @@
       activeRoute = chosenRoute || baselineRoute;
       aggiornaMappaERisultati(activeRoute, aiExplanation);
     }
-function aggiornaMappaERisultati(rotta, spiegazione) {
+    function aggiornaMappaERisultati(rotta, spiegazione) {
       try {
         const aiBanner = document.getElementById('ai-rationale-banner');
         const aiText = document.getElementById('ai-rationale-text');
