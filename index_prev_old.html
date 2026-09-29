@@ -1244,16 +1244,9 @@
               aiExplanation = aiData.spiegazione;
             }
           } else {
-            let errorDetail = "HTTP " + aiRes.status;
-            try {
-              const err = await aiRes.json();
-              if (err && err.error) errorDetail = err.error;
-            } catch (_) {
-              const txt = await aiRes.text().catch(() => "");
-              if (txt) errorDetail += ": " + txt.slice(0, 60);
-            }
-            console.warn("AI Plan fallback:", errorDetail);
-            showToast("⚠️ " + errorDetail);
+            const err = await aiRes.json().catch(() => ({}));
+            console.warn("AI Plan fallback:", err);
+            showToast("⚠️ " + (err.error || "Errore AI, uso rotta standard"));
           }
         } catch (e) {
           console.warn("Chiamata AI fallita:", e);
