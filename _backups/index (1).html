@@ -1254,23 +1254,11 @@
           if (aiRes.ok) {
             const aiData = await aiRes.json();
             if (aiData.via_points && Array.isArray(aiData.via_points) && aiData.via_points.length > 0) {
-              const dTot = distanzaMetri(userLocation.lat, userLocation.lon, destLocation.lat, destLocation.lon);
               waypoints = aiData.via_points.map(w => ({
                 lat: parseFloat(w.lat !== undefined ? w.lat : w.latitude),
                 lon: parseFloat(w.lon !== undefined ? w.lon : (w.lng !== undefined ? w.lng : w.longitude)),
                 nome: w.nome || w.name || "Punto via"
-              })).filter(w => {
-                if (isNaN(w.lat) || isNaN(w.lon)) return false;
-                const dStart = distanzaMetri(userLocation.lat, userLocation.lon, w.lat, w.lon);
-                const dEnd = distanzaMetri(w.lat, w.lon, destLocation.lat, destLocation.lon);
-                // Scarta punti che tornano indietro (allungano la distanza dalla meta) o che deviano oltre il 40%
-                return (dStart + dEnd) <= dTot * 1.45 && dEnd < dTot;
-              }).sort((a, b) => {
-                // Ordina lungo il senso di marcia progressivo (dalla partenza all'arrivo)
-                const da = distanzaMetri(userLocation.lat, userLocation.lon, a.lat, a.lon);
-                const db = distanzaMetri(userLocation.lat, userLocation.lon, b.lat, b.lon);
-                return da - db;
-              });
+              })).filter(w => !isNaN(w.lat) && !isNaN(w.lon));
 
               showToast(`🎯 L'IA ha applicato ${waypoints.length} tappe per deviare il percorso`);
             } else {
