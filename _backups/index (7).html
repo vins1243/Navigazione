@@ -1186,82 +1186,81 @@
       }
     }
 
-    // Classificazione geografica dei versanti per evitare scavalcamenti montani assurdi
-    function isVersanteAdriaticoJonico(lat, lon) {
-      if (lat < 40.5) return lon >= 16.1; // Sibari, Metaponto, Taranto
-      if (lat < 41.8) return lon >= 14.8; // Puglia, Foggia, Molise
-      if (lat < 43.0) return lon >= 13.4; // Abruzzo (Pescara, Vasto)
-      if (lat < 44.2) return lon >= 12.2; // Marche / Romagna (Pesaro, Ancona, Rimini)
-      return lon >= 11.0; // Emilia-Romagna / Veneto
-    }
+    // Rete autonoma dei corridoi delle Strade Statali (SS) primarie italiane
+    const RETE_STATALI_ITALIA = [
+      // Direttrice Adriatica e Raccordi Jonico-Lucani (SS106, SS96, SS16)
+      { nome: "SS106 Massafra / Taranto Nord", lat: 40.590, lon: 17.110, road: "SS106" },
+      { nome: "SS96 Matera / Altamura", lat: 40.825, lon: 16.550, road: "SS96" },
+      { nome: "SS16 Cerignola (Statale)", lat: 41.265, lon: 15.895, road: "SS16" },
+      { nome: "SS16 Foggia Tangenziale", lat: 41.455, lon: 15.545, road: "SS16" },
+      { nome: "SS16 San Severo", lat: 41.690, lon: 15.385, road: "SS16" },
+      { nome: "SS16 Termoli", lat: 42.000, lon: 14.990, road: "SS16" },
+      { nome: "SS16 Vasto Marina", lat: 42.110, lon: 14.710, road: "SS16" },
+      { nome: "SS16 Pescara Tangenziale", lat: 42.460, lon: 14.210, road: "SS16" },
+      { nome: "SS16 San Benedetto del Tronto", lat: 42.950, lon: 13.880, road: "SS16" },
+      { nome: "SS16 Civitanova Marche", lat: 43.305, lon: 13.725, road: "SS16" },
+      { nome: "SS16 Ancona Sud", lat: 43.550, lon: 13.510, road: "SS16" },
+      { nome: "SS16 Senigallia", lat: 43.715, lon: 13.218, road: "SS16" },
+      { nome: "SS16 Fano", lat: 43.840, lon: 13.020, road: "SS16" },
+      { nome: "SS16 Pesaro", lat: 43.910, lon: 12.910, road: "SS16" },
+      { nome: "SS16 Rimini", lat: 44.060, lon: 12.560, road: "SS16" },
+      { nome: "SS16 Cesena", lat: 44.140, lon: 12.240, road: "SS16" },
+      { nome: "SS16 Ravenna", lat: 44.415, lon: 12.200, road: "SS16" },
+      { nome: "SS16 Ferrara", lat: 44.835, lon: 11.620, road: "SS16" },
+      { nome: "SS16 Padova", lat: 45.410, lon: 11.880, road: "SS16" },
 
-    const CORRIDOI_STATALI = {
-      JONICO_ADRIATICO: [
-        { nome: "SS106 Metaponto", lat: 40.380, lon: 16.800, road: "SS106" },
-        { nome: "SS96 Altamura / Matera", lat: 40.825, lon: 16.550, road: "SS96" },
-        { nome: "SS16 Cerignola (Statale)", lat: 41.265, lon: 15.895, road: "SS16" },
-        { nome: "SS16 Foggia Tangenziale", lat: 41.455, lon: 15.545, road: "SS16" },
-        { nome: "SS16 San Severo", lat: 41.690, lon: 15.385, road: "SS16" },
-        { nome: "SS16 Termoli", lat: 42.000, lon: 14.990, road: "SS16" },
-        { nome: "SS16 Pescara Tangenziale", lat: 42.460, lon: 14.210, road: "SS16" },
-        { nome: "SS16 Civitanova Marche", lat: 43.305, lon: 13.725, road: "SS16" },
-        { nome: "SS16 Ancona Sud", lat: 43.550, lon: 13.510, road: "SS16" },
-        { nome: "SS16 Fano", lat: 43.840, lon: 13.020, road: "SS16" },
-        { nome: "SS16 Pesaro", lat: 43.910, lon: 12.910, road: "SS16" },
-        { nome: "SS16 Rimini", lat: 44.060, lon: 12.560, road: "SS16" }
-      ],
-      TIRRENICO: [
-        { nome: "SS18 Cosenza Nord / Paola", lat: 39.360, lon: 16.040, road: "SS18" },
-        { nome: "SS18 Praia a Mare", lat: 39.890, lon: 15.780, road: "SS18" },
-        { nome: "SS18 Salerno", lat: 40.680, lon: 14.770, road: "SS18" },
-        { nome: "SS6 Casilina Cassino", lat: 41.490, lon: 13.830, road: "SS6" },
-        { nome: "SS7 Appia Formia / Latina", lat: 41.260, lon: 13.610, road: "SS7" },
-        { nome: "SS1 Aurelia Grosseto", lat: 42.760, lon: 11.110, road: "SS1" },
-        { nome: "SS1 Aurelia Livorno", lat: 43.550, lon: 10.310, road: "SS1" },
-        { nome: "SS1 Aurelia La Spezia", lat: 44.110, lon: 9.830, road: "SS1" }
-      ]
-    };
+      // Direttrice Tirrenica (SS18, SS7, SS6, SS1 Aurelia)
+      { nome: "SS18 Cosenza Nord / Paola", lat: 39.360, lon: 16.040, road: "SS18" },
+      { nome: "SS18 Praia a Mare", lat: 39.890, lon: 15.780, road: "SS18" },
+      { nome: "SS18 Salerno", lat: 40.680, lon: 14.770, road: "SS18" },
+      { nome: "SS6 Casilina Cassino", lat: 41.490, lon: 13.830, road: "SS6" },
+      { nome: "SS7 Appia Formia / Latina", lat: 41.260, lon: 13.610, road: "SS7" },
+      { nome: "SS1 Aurelia Grosseto", lat: 42.760, lon: 11.110, road: "SS1" },
+      { nome: "SS1 Aurelia Livorno", lat: 43.550, lon: 10.310, road: "SS1" },
+      { nome: "SS1 Aurelia La Spezia", lat: 44.110, lon: 9.830, road: "SS1" },
 
-    // Genera proposte autonome coerenti per versante: MAI mescolare Tirreno e Adriatico!
+      // Direttrice Centrale / Umbro-Marchigiana (SS3 Flaminia, SS3bis Tiberina E45)
+      { nome: "SS3bis Tiberina Perugia", lat: 43.110, lon: 12.390, road: "SS3bis" },
+      { nome: "SS3bis Cesena E45", lat: 44.140, lon: 12.240, road: "SS3bis" },
+      { nome: "SS3 Flaminia Foligno", lat: 42.955, lon: 12.705, road: "SS3" },
+      { nome: "SS3 Flaminia Cagli", lat: 43.545, lon: 12.650, road: "SS3" },
+
+      // Direttrice Padana (SS9 Via Emilia, SS11 Padana Superiore)
+      { nome: "SS9 Via Emilia Bologna", lat: 44.495, lon: 11.345, road: "SS9" },
+      { nome: "SS9 Via Emilia Modena", lat: 44.645, lon: 10.925, road: "SS9" },
+      { nome: "SS9 Via Emilia Parma", lat: 44.800, lon: 10.330, road: "SS9" },
+      { nome: "SS11 Verona", lat: 45.440, lon: 10.990, road: "SS11" },
+      { nome: "SS11 Vicenza", lat: 45.550, lon: 11.550, road: "SS11" }
+    ];
+
+    // Genera proposte autonome e deterministiche su Strade Statali in assenza o integrazione con l'IA
     function generaScenariStataliAutonomi(orig, dest) {
-      const origIsEast = isVersanteAdriaticoJonico(orig.lat, orig.lon);
-      const destIsEast = isVersanteAdriaticoJonico(dest.lat, dest.lon);
-
-      let nodes = [];
-      if (origIsEast && destIsEast) {
-        nodes = CORRIDOI_STATALI.JONICO_ADRIATICO;
-      } else if (!origIsEast && !destIsEast) {
-        nodes = CORRIDOI_STATALI.TIRRENICO;
-      } else {
-        nodes = origIsEast ? CORRIDOI_STATALI.JONICO_ADRIATICO : CORRIDOI_STATALI.TIRRENICO;
-      }
-
       const dTotKm = distanzaMetri(orig.lat, orig.lon, dest.lat, dest.lon) / 1000;
       const validi = [];
 
-      nodes.forEach(n => {
+      RETE_STATALI_ITALIA.forEach(n => {
         const d1 = distanzaMetri(orig.lat, orig.lon, n.lat, n.lon) / 1000;
         const d2 = distanzaMetri(n.lat, n.lon, dest.lat, dest.lon) / 1000;
-        if (d1 < 30 || d2 < 30) return;
+        if (d1 < 20 || d2 < 20) return;
         // Solo punti che avanzano verso la destinazione e non provocano deviazioni abnormi
-        if (d1 < dTotKm && d2 < dTotKm && (d1 + d2) <= dTotKm * 1.22) {
-          validi.push({ d1, node: n });
+        if (d1 < dTotKm && d2 < dTotKm && (d1 + d2) <= dTotKm * 1.25) {
+          validi.append ? validi.append({ d1, node: n }) : validi.push({ d1, node: n });
         }
       });
 
       if (validi.length === 0) return [];
       validi.sort((a, b) => a.d1 - b.d1);
 
-      // Seleziona AL MASSIMO 2 o 3 tappe cardine distanziate per evitare deviazioni forzate o rami a fondo cieco
-      const stepGap = Math.max(70, dTotKm / 3.2);
+      // Seleziona 3 o 4 tappe chiave ben distribuite lungo la dorsale statale
+      const stepGap = Math.max(35, dTotKm / 5.5);
       const waypoints = [];
       let lastD = 0;
 
       for (const item of validi) {
-        if (item.d1 - lastD >= stepGap && (dTotKm - item.d1) >= 30) {
+        if (item.d1 - lastD >= stepGap && (dTotKm - item.d1) >= 20) {
           waypoints.push(item.node);
           lastD = item.d1;
-          if (waypoints.length >= 3) break;
+          if (waypoints.length >= 4) break;
         }
       }
 
@@ -1270,8 +1269,8 @@
       }
 
       return [{
-        nome: "Dorsale Statale Diretta Senza Pedaggi",
-        descrizione: "Itinerario lineare su Strade Statali (SS) primarie senza attraversamenti montani superflui né pedaggi.",
+        nome: "Dorsale Statale Senza Pedaggi",
+        descrizione: "Itinerario su Strade Statali (SS) primarie con totale esclusione dei caselli autostradali.",
         via_points: waypoints
       }];
     }
