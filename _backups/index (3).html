@@ -1328,9 +1328,6 @@
       // Sanitizzazione geometrica di ciascuna proposta
       const evaluatedCandidates = await Promise.all(proposals.map(async (prop) => {
         const rawPoints = prop.via_points || [];
-        // Buffer di sicurezza: esclude waypoints nei primi 25 km e negli ultimi 25 km (evita vicoli ciechi o stradine poderali)
-        const minBuffer = Math.min(25000, dTot * 0.15);
-
         const cleanPoints = rawPoints.map(w => ({
           lat: parseFloat(w.lat !== undefined ? w.lat : w.latitude),
           lon: parseFloat(w.lon !== undefined ? w.lon : (w.lng !== undefined ? w.lng : w.longitude)),
@@ -1339,12 +1336,8 @@
           if (isNaN(w.lat) || isNaN(w.lon)) return false;
           const dStart = distanzaMetri(userLocation.lat, userLocation.lon, w.lat, w.lon);
           const dEnd = distanzaMetri(w.lat, w.lon, destLocation.lat, destLocation.lon);
-          
-          // Scarta categoricamente punti troppo vicini alla partenza o all'arrivo
-          if (dStart < minBuffer || dEnd < minBuffer) return false;
-
-          // Scarta punti che tornano indietro (allungano la distanza dalla meta) o che deviano oltre il 30%
-          return (dStart + dEnd) <= dTot * 1.30 && dEnd < dTot;
+          // Scarta punti che tornano indietro (allungano la distanza dalla meta) o che deviano oltre il 35%
+          return (dStart + dEnd) <= dTot * 1.35 && dEnd < dTot;
         }).sort((a, b) => {
           // Ordina lungo il senso di marcia progressivo (dalla partenza all'arrivo)
           const da = distanzaMetri(userLocation.lat, userLocation.lon, a.lat, a.lon);
@@ -1377,15 +1370,6 @@
                 const r = [s.ref, s.name].filter(Boolean).join(" ");
                 if (r && !candRoads.includes(r)) candRoads.push(r);
               });
-            }
-
-            // Verifica se il waypoint ha causato un'inversione a U a fondo cieco (dead-end spur)
-            const hasDeadEndUturn = candRoute.legs && candRoute.legs.some(leg => 
-              leg.steps && leg.steps.some(st => st.maneuver && st.maneuver.modifier === 'uturn')
-            );
-            if (hasDeadEndUturn) {
-              console.warn("Scartata proposta AI: provocava inversione a U a fondo cieco:", prop.nome);
-              return null;
             }
 
             return {
