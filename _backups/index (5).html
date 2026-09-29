@@ -1403,81 +1403,53 @@
 
       const validCandidates = evaluatedCandidates.filter(Boolean);
 
-      // 4. Algoritmo di decisione rigoroso sul rispetto dei vincoli
+      // 4. Algoritmo di decisione: sceglie il connubio ottimale tra rispetto preferenza, qualità strade, tempi e km
       const prefLower = customPrompt.toLowerCase();
-      const wantsNoHighway = prefLower.includes("evita") || prefLower.includes("no pedagg") || prefLower.includes("senza pedagg") || prefLower.includes("senza autostrad") || prefLower.includes("solo statal");
-      const wantsHighway = (prefLower.includes("autostrad") || prefLower.includes("veloce") || prefLower.includes("comfort")) && !wantsNoHighway;
+      const wantsHighway = (prefLower.includes("autostrad") || prefLower.includes("veloce") || prefLower.includes("comfort")) &&
+                           !prefLower.includes("evita") && !prefLower.includes("no pedagg") && !prefLower.includes("senza");
+      const wantsNoHighway = prefLower.includes("evita") || prefLower.includes("no pedagg") || prefLower.includes("senza pedagg") || prefLower.includes("solo statal");
 
-      let chosenRoute = null;
+      let bestChoice = null;
+      let bestScore = -Infinity;
 
-      if (wantsNoHighway) {
-        // VINCOLO FERREO: Evita autostrade a pedaggio (tratte 'A').
-        // Non ricadere MAI sul prepercorso autostradale solo perché è più veloce.
-        let bestNonHighway = null;
-        let bestNonHwScore = -Infinity;
+      validCandidates.forEach(cand => {
+        let score = 100;
+        const hasMotorway = cand.roads.some(r => /\bA\d+\b/i.test(r) || /autostrada/i.test(r));
 
-        validCandidates.forEach(cand => {
-          const hasMotorway = cand.roads.some(r => /\bA\d+\b/i.test(r) || /autostrada/i.test(r));
-          // Priorità assoluta a chi NON usa autostrade
-          let score = hasMotorway ? -500 : 500;
-          score -= (cand.km * 0.5); // Favorisci la più breve tra le statali
-          score -= (cand.min * 0.3); // Favorisci la più scorrevole
-
-          if (score > bestNonHwScore) {
-            bestNonHwScore = score;
-            bestNonHighway = cand;
-          }
-        });
-
-        if (bestNonHighway) {
-          chosenRoute = bestNonHighway.route;
-          activeWaypoints = bestNonHighway.waypoints;
-          showToast(`🎯 Rotta senza pedaggi applicata (${bestNonHighway.km.toFixed(1)} km, ${Math.round(bestNonHighway.min)} min)`);
-        } else if (validCandidates.length > 0) {
-          chosenRoute = validCandidates[0].route;
-          activeWaypoints = validCandidates[0].waypoints;
-          showToast("🎯 Rotta alternativa applicata");
-        } else {
-          chosenRoute = baselineRoute;
-          showToast("⚠️ Nessuna alternativa ordinaria trovata");
+        if (wantsNoHighway) {
+          if (!hasMotorway) score += 60; // Rispetta appieno il no pedaggi
+          else score -= 80;
+        } else if (wantsHighway) {
+          if (hasMotorway) score += 70;  // Rispetta la preferenza autostradale
+          else score -= 30;
         }
-      } else if (wantsHighway) {
-        // VINCOLO: Prediligi autostrada a scorrimento veloce
-        let bestHw = null;
-        let bestHwScore = -Infinity;
 
-        validCandidates.forEach(cand => {
-          const hasMotorway = cand.roads.some(r => /\bA\d+\b/i.test(r) || /autostrada/i.test(r));
-          let score = hasMotorway ? 300 : -100;
-          score -= (cand.min * 0.5); // Favorisci la più veloce a scorrimento continuo
-          score -= (cand.km * 0.2);
+        // Penalizza allunghi chilometrici ingiustificati
+        const kmDiff = cand.km - baselineKm;
+        if (kmDiff > 10) score -= (kmDiff / baselineKm) * 120;
 
-          if (score > bestHwScore) {
-            bestHwScore = score;
-            bestHw = cand;
-          }
-        });
+        // Penalizza tempi eccessivi
+        const minDiff = cand.min - baselineMin;
+        if (minDiff > 15) score -= (minDiff / baselineMin) * 100;
 
-        if (bestHw && bestHwScore > 0) {
-          chosenRoute = bestHw.route;
-          activeWaypoints = bestHw.waypoints;
-          showToast(`🎯 Rotta autostradale applicata (${bestHw.km.toFixed(1)} km, ${Math.round(bestHw.min)} min)`);
-        } else {
-          chosenRoute = baselineRoute;
-          showToast("ℹ️ Percorso autostradale principale attivo");
+        if (score > bestScore) {
+          bestScore = score;
+          bestChoice = cand;
         }
+      });
+
+      // Se una candidata è stata validata con successo ed è soddisfacente
+      if (bestChoice && (bestScore > 40 || (wantsNoHighway && !bestChoice.roads.some(r => /\bA\d+\b/i.test(r))))) {
+        activeRoute = bestChoice.route;
+        activeWaypoints = bestChoice.waypoints;
+        const note = bestChoice.prop.nome || "Ottimizzazione applicata";
+        showToast(`🎯 Rotta ottimizzata: ${note} (${bestChoice.km.toFixed(1)} km, ${Math.round(bestChoice.min)} min)`);
       } else {
-        // Richieste qualitative (panoramico, ecc.)
-        if (validCandidates.length > 0) {
-          chosenRoute = validCandidates[0].route;
-          activeWaypoints = validCandidates[0].waypoints;
-          showToast(`🎯 Rotta personalizzata applicata (${(chosenRoute.distance/1000).toFixed(1)} km)`);
-        } else {
-          chosenRoute = baselineRoute;
-        }
+        // Altrimenti mantieni il prepercorso come opzione migliore
+        activeRoute = baselineRoute;
+        showToast("ℹ️ Mantenuto il percorso ottimale standard: il migliore per tempi e chilometri.");
       }
 
-      activeRoute = chosenRoute || baselineRoute;
       aggiornaMappaERisultati(activeRoute, aiExplanation);
     }
 
